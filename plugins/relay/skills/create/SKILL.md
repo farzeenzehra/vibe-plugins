@@ -1,6 +1,6 @@
 ---
 name: create
-description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Sets up an MCP messaging server in ~/.claude/relay/<team-name>/, runs npm install, and registers it in this project's .claude/settings.local.json (project-local, so two terminals in different projects don't conflict). After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
+description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Sets up an MCP messaging server in ~/.claude/relay/<team-name>/, runs npm install, and registers the server via `claude mcp add --scope local` (per-project-path, so two terminals in different projects get isolated configs without committing anything to either repo). After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
 argument-hint: <team-name>
 arguments: [team_name]
 allowed-tools: Bash Read Write
@@ -8,29 +8,15 @@ allowed-tools: Bash Read Write
 
 Set up a relay team named "$team_name" rooted in this terminal as the lead.
 
-The plugin's bundled server lives at `${CLAUDE_PLUGIN_ROOT}/server/server.js` and `${CLAUDE_PLUGIN_ROOT}/server/package.json`. The team's runtime directory is shared across terminals at `<HOME>/.claude/relay/$team_name`. The MCP server registration is **project-local** to this terminal's working directory — that's how a second terminal in a different project can have its own RELAY_NAME without overwriting this one.
+The plugin's bundled server lives at `${CLAUDE_PLUGIN_ROOT}/server/server.js` and `${CLAUDE_PLUGIN_ROOT}/server/package.json`. The shared team runtime directory is `<HOME>/.claude/relay/$team_name`. The MCP server registration uses **`claude mcp add --scope local`** (the default scope), which writes the server into `~/.claude.json` under THIS terminal's current project path. Different terminals in different project dirs get isolated entries — each with its own `RELAY_NAME` — without polluting any project repo.
 
 ## Step 1 — Resolve paths
 
-Determine:
-- HOME (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`)
-- CWD (Bash: `pwd`)
-
-Use forward-slash form throughout.
+Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form throughout.
 
 Define:
 - TEAM_DIR = `HOME/.claude/relay/$team_name`
 - SERVER_PATH = `TEAM_DIR/server.js`
-- SETTINGS_PATH = `CWD/.claude/settings.local.json`
-
-**Sanity check:** if CWD equals HOME, print:
-
-  This terminal is running Claude from your HOME directory, not a project.
-  Relay needs each terminal to be in a different project directory so each
-  gets its own .claude/settings.local.json. Re-open Claude inside a project
-  and try again.
-
-And stop.
 
 ## Step 2 — Bail if the team already exists
 
@@ -48,43 +34,32 @@ And stop.
 Create `TEAM_DIR` (recursively).
 
 Copy:
-- `${CLAUDE_PLUGIN_ROOT}/server/server.js` → `TEAM_DIR/server.js`
+- `${CLAUDE_PLUGIN_ROOT}/server/server.js` → `SERVER_PATH`
 - `${CLAUDE_PLUGIN_ROOT}/server/package.json` → `TEAM_DIR/package.json`
 
-(Use Bash `cp` or read+write with the Read/Write tools — either is fine.)
+(Use Bash `cp` or read+write — either is fine.)
 
 ## Step 4 — Install dependencies
 
 Run `npm install` inside `TEAM_DIR`. This pulls in `@modelcontextprotocol/sdk`.
 
-If the command fails (npm not on PATH, network error, etc.), print the error and stop — do NOT touch settings.local.json yet, otherwise the user will get a broken MCP server on next start.
+If the command fails, print the error and stop — do NOT register the MCP server, otherwise the user gets a broken setup on next start.
 
 Print: `✓ Dependencies installed in TEAM_DIR`.
 
-## Step 5 — Register the MCP server in this project's settings.local.json
+## Step 5 — Register the MCP server with `claude mcp add`
 
-Ensure `CWD/.claude/` exists (create it if needed).
-
-Read `SETTINGS_PATH`. If the file does not exist or is empty, treat its contents as `{}`.
-
-Ensure there is an `mcpServers` object. Set `mcpServers["relay-$team_name"]` to:
+Run this command (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
 
 ```
-{
-  "command": "node",
-  "args": ["<SERVER_PATH>"],
-  "env": {
-    "RELAY_TEAM": "$team_name",
-    "RELAY_NAME": "lead",
-    "RELAY_ROLE": "lead",
-    "RELAY_DIR": "<TEAM_DIR>"
-  }
-}
+claude mcp add --transport=stdio --env=RELAY_TEAM=$team_name --env=RELAY_NAME=lead --env=RELAY_ROLE=lead --env=RELAY_DIR=<TEAM_DIR> relay-$team_name -- node <SERVER_PATH>
 ```
 
-Replace `<SERVER_PATH>` and `<TEAM_DIR>` with the actual forward-slash absolute paths. Write the updated JSON back, preserving any other keys in the file.
+If `<TEAM_DIR>` or `<SERVER_PATH>` contain spaces, wrap the whole `--env=…` token (or the path arg) in double quotes — e.g. `"--env=RELAY_DIR=C:/Users/some name/.claude/relay/team"`.
 
-Print: `✓ Registered MCP server "relay-$team_name" in CWD/.claude/settings.local.json`.
+If the command fails (e.g., `claude` not on PATH, or `relay-$team_name` already exists in this project's local scope), print stderr and stop.
+
+Print: `✓ Registered "relay-$team_name" via claude mcp add (scope=local, scoped to this project path)`.
 
 ## Step 6 — Print restart instructions
 
@@ -92,9 +67,7 @@ Print exactly:
 
 Relay team "$team_name" is set up.
 
-This terminal's relay config lives at:
-  CWD/.claude/settings.local.json
-(If your project's .gitignore doesn't already cover .claude/settings.local.json, add it — that file is per-developer and shouldn't be committed.)
+The MCP server is registered to THIS terminal's project path (entry in ~/.claude.json). It won't appear in any other project — that's how each terminal in this team gets its own RELAY_NAME.
 
 Next steps in THIS terminal:
   1. Quit Claude Code (Ctrl+D or close).
@@ -106,8 +79,10 @@ Once restarted you'll have these MCP tools:
   - relay_receive()           read and clear your inbox
   - relay_members()           list registered members
 
+To verify the server is registered, run: `claude mcp list`
+
 To bring another terminal into this team, in that terminal's project directory run:
   /relay:join $team_name <agent-name>
 
-To clean everything up later (run in each terminal that joined):
+To clean up later (run in each terminal that joined):
   /relay:end $team_name

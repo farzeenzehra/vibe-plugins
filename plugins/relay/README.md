@@ -16,18 +16,18 @@ Where `/squad:add-agent` requires the second terminal to start a fresh session, 
 
 - Each terminal runs its own Node.js subprocess as a stdio MCP server (no HTTP, no port management).
 - All subprocesses share state via JSON files in a shared `~/.claude/relay/<team-name>/` directory.
-- The MCP server registration is **project-local** — it goes in `<cwd>/.claude/settings.local.json`, not user-global `~/.claude/settings.json`. Each terminal must therefore be in a different project directory; that's how each one gets its own `RELAY_NAME` (`lead`, `agent1`, etc.) without trampling the others.
+- The MCP server is registered via **`claude mcp add --scope local`** (Claude Code's default scope). That CLI writes to `~/.claude.json` *under the current project's path entry* — so two terminals in different project directories get isolated configs and isolated `RELAY_NAME` values, without committing anything to either project repo.
 - Adding an MCP server requires one Claude Code restart per terminal — but the conversation history is preserved when you choose "Resume previous conversation".
 
 ## Usage
 
-> **Note:** each terminal must be open in a *different* project directory. Relay uses project-local settings to keep each terminal's identity isolated.
+> **Note:** each terminal must be open in a *different* project directory. Relay registers the MCP server scoped to the current project path; same path → shared identity.
 
 **Step 1 — In your lead terminal (open in some project, e.g. `~/projects/backend`):**
 ```
 /relay:create my-team
 ```
-Sets up the shared `~/.claude/relay/my-team/`, runs `npm install`, and registers the MCP server in `<cwd>/.claude/settings.local.json` as `relay-my-team` with `RELAY_NAME=lead`.
+Sets up the shared `~/.claude/relay/my-team/`, runs `npm install`, and registers the MCP server via `claude mcp add` as `relay-my-team` with `RELAY_NAME=lead`, scoped to this terminal's project path.
 
 **Step 2 — Restart Claude Code in this terminal.** Choose "Resume previous conversation" when prompted.
 
@@ -35,7 +35,9 @@ Sets up the shared `~/.claude/relay/my-team/`, runs `npm install`, and registers
 ```
 /relay:join my-team agent1
 ```
-This writes a separate `<cwd>/.claude/settings.local.json` in *that* project with `RELAY_NAME=agent1`. Restart Claude Code. Resume previous conversation.
+Registers `relay-my-team` with `RELAY_NAME=agent1` scoped to *that* terminal's project path. Restart Claude Code. Resume previous conversation.
+
+You can verify either registration with `claude mcp list`.
 
 **Step 4 — Once both terminals are restarted, message back and forth:**
 ```
@@ -61,14 +63,14 @@ Run in each terminal that joined.
 ## Requirements
 
 - Node.js + `npm` available on PATH (the `create` skill runs `npm install` automatically)
+- `claude` (the Claude Code CLI) on PATH — used to register/deregister the MCP server
 - All terminals on the same machine (shared filesystem at `~/.claude/relay/`)
-- Each terminal opened in a **different project directory** (relay uses project-local settings; running two terminals in the same directory makes them share an identity)
+- Each terminal opened in a **different project directory** — local-scope MCP servers are keyed by project path, so two terminals in the same directory share one identity
 
 ## Limitations
 
 - **Polling, not push** — `relay_receive()` must be called explicitly; there are no background notifications.
 - **One restart per terminal** — unavoidable for MCP server activation. Conversation context survives via "Resume previous conversation".
-- **`.claude/settings.local.json`** — relay writes to this file in each terminal's project. Make sure your project's `.gitignore` covers it (it's per-developer config, shouldn't be committed).
 
 ## Installation
 
