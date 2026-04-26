@@ -6,11 +6,21 @@ Where `/squad:add-agent` requires the second terminal to start a fresh session, 
 
 ## Skills
 
+**Setup / teardown:**
+
 | Skill | Description |
 |---|---|
-| `/relay:create <team-name>` | Set up a relay team in the lead terminal (writes server, runs `npm install`, registers MCP) |
+| `/relay:create <team-name>` | Set up a relay team in the lead terminal (copies the zero-dep server, registers MCP) |
 | `/relay:join <team-name> <agent-name>` | Join an existing relay from another terminal |
 | `/relay:end <team-name>` | Remove the MCP server from settings and delete the team directory |
+
+**Day-to-day messaging** (thin slash wrappers around the MCP tools — type these instead of asking Claude to call the underlying tool):
+
+| Skill | Description |
+|---|---|
+| `/relay:send <to> <message>` | Send a message to another team member (they see it auto as a `<channel>` notification) |
+| `/relay:members` | List who's connected |
+| `/relay:receive` | Manually flush your inbox (rarely needed — channel push delivers automatically) |
 
 ## How it works
 
@@ -71,7 +81,7 @@ Run in each terminal that joined.
 
 ## Requirements
 
-- Node.js + `npm` available on PATH (the `create` skill runs `npm install` automatically)
+- Node.js on PATH (the server is **zero-dependency** — pure Node.js stdio JSON-RPC, no `npm install` required)
 - `claude` (the Claude Code CLI) on PATH — used to register/deregister the MCP server
 - All terminals on the same machine (shared filesystem at `~/.claude/relay/`)
 - Each terminal opened in a **different project directory** — local-scope MCP servers are keyed by project path, so two terminals in the same directory share one identity

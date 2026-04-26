@@ -1,6 +1,6 @@
 ---
 name: create
-description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Sets up an MCP messaging server in ~/.claude/relay/<team-name>/, runs npm install, and registers the server via `claude mcp add --scope local` (per-project-path, so two terminals in different projects get isolated configs without committing anything to either repo). After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
+description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Copies a zero-dependency MCP server into the active Claude data dir's relay/<team-name>/ folder and registers it via `claude mcp add --scope local` (per-project-path, so two terminals in different projects get isolated configs without committing anything to either repo). No npm install needed — the server is pure Node.js stdio JSON-RPC. After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
 argument-hint: <team-name>
 arguments: [team_name]
 allowed-tools: Bash Read Write
@@ -47,15 +47,9 @@ Copy:
 
 (Use Bash `cp` or read+write — either is fine.)
 
-## Step 4 — Install dependencies
+The server is **zero-dependency** — pure Node.js stdio JSON-RPC, no `@modelcontextprotocol/sdk` required. There's nothing to `npm install` and no `node_modules` to manage.
 
-Run `npm install` inside `TEAM_DIR`. This pulls in `@modelcontextprotocol/sdk`.
-
-If the command fails, print the error and stop — do NOT register the MCP server, otherwise the user gets a broken setup on next start.
-
-Print: `✓ Dependencies installed in TEAM_DIR`.
-
-## Step 5 — Register the MCP server with `claude mcp add`
+## Step 4 — Register the MCP server with `claude mcp add`
 
 Run this command (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
 
@@ -69,7 +63,7 @@ If the command fails (e.g., `claude` not on PATH, or `relay-$team_name` already 
 
 Print: `✓ Registered "relay-$team_name" via claude mcp add (scope=local, scoped to this project path)`.
 
-## Step 6 — Print restart instructions
+## Step 5 — Print restart instructions
 
 Print exactly:
 

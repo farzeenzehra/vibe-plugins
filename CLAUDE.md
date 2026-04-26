@@ -25,9 +25,10 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 
 ## MCP servers (relay pattern)
 
-- `@modelcontextprotocol/sdk@^1.0.0`, low-level `Server` + `setRequestHandler(ListToolsRequestSchema, ...)` + `setRequestHandler(CallToolRequestSchema, ...)`. Most version-stable, avoids the zod dependency that `McpServer` requires.
+- **Zero-dep stdio JSON-RPC is fine** — MCP-over-stdio is just newline-delimited JSON-RPC 2.0. For simple servers, skip `@modelcontextprotocol/sdk` and implement directly with `node:readline` + `process.stdout.write(JSON.stringify(...) + '\n')`. Eliminates `npm install`, `node_modules`, and 10MB+ per runtime copy. See `plugins/relay/server/server.js` for the pattern.
+- If you do use the SDK: `@modelcontextprotocol/sdk@^1.0.0`, low-level `Server` + `setRequestHandler(ListToolsRequestSchema, ...)` + `setRequestHandler(CallToolRequestSchema, ...)`. Most version-stable, avoids the zod dependency that `McpServer` requires.
 - ESM (`"type": "module"` in package.json)
-- Skills copy `server.js` + `package.json` into a per-use runtime dir (e.g. `~/.claude/relay/<team>/`) and run `npm install` there. **Existing runtime copies don't auto-upgrade** when the plugin updates — call this out in the plugin README.
+- Skills copy `server.js` + `package.json` into a per-use runtime dir (e.g. `<CLAUDE_CONFIG_DIR>/relay/<team>/`). **Existing runtime copies don't auto-upgrade** when the plugin updates — call this out in the plugin README.
 - For **per-terminal** MCP env vars (e.g. each terminal needs a different `RELAY_NAME`), register via the CLI: `claude mcp add --transport=stdio --env=KEY1=v1 --env=KEY2=v2 <name> -- node <path>`. **Use `--opt=val` form** (with `=`) — the `--env` flag is variadic and will otherwise greedily eat the server name as another env var. The default `--scope local` writes to `~/.claude.json` keyed by the current project path, so two terminals in different project dirs get isolated entries. Note: `mcpServers` in `<cwd>/.claude/settings.local.json` is NOT loaded by Claude Code — that file is for general settings, not MCP. Don't try to write MCP config there.
 
 ## Claude Code Channels (push delivery into sessions)

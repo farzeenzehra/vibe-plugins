@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+// Zero-dependency MCP stdio server. The MCP wire protocol over stdio is
+// just newline-delimited JSON-RPC 2.0, so we implement it directly using
+// Node built-ins — no @modelcontextprotocol/sdk, no node_modules, no
+// npm install at runtime.
+import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,8 +13,8 @@ const RELAY_TEAM = process.env.RELAY_TEAM;
 const RELAY_ROLE = process.env.RELAY_ROLE || "agent";
 
 if (!RELAY_DIR || !RELAY_NAME || !RELAY_TEAM) {
-  console.error(
-    "relay server: RELAY_DIR, RELAY_NAME, and RELAY_TEAM env vars are required",
+  process.stderr.write(
+    "relay server: RELAY_DIR, RELAY_NAME, and RELAY_TEAM env vars are required\n",
   );
   process.exit(1);
 }
@@ -53,7 +52,7 @@ const TOOLS = [
   {
     name: "relay_send",
     description:
-      "Send a message to another relay team member's inbox. The recipient picks it up with relay_receive.",
+      "Send a message to another relay team member. The recipient sees it as a <channel> notification automatically.",
     inputSchema: {
       type: "object",
       properties: {
@@ -69,7 +68,7 @@ const TOOLS = [
   {
     name: "relay_receive",
     description:
-      "Read and clear your own inbox. Returns all messages waiting for you, then empties it.",
+      "Manually read and clear your own inbox. Rarely needed — channel push delivers messages automatically.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -131,20 +130,7 @@ function relayMembers() {
   return textResult(text);
 }
 
-const server = new Server(
-  { name: `relay-${RELAY_TEAM}`, version: "1.0.0" },
-  {
-    capabilities: {
-      tools: {},
-      experimental: { "claude/channel": {} },
-    },
-  },
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const { name, arguments: args } = req.params;
+function callTool(name, args) {
   switch (name) {
     case "relay_send":
       return relaySend(args);
@@ -155,32 +141,94 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     default:
       return errorResult(`Unknown tool: ${name}`);
   }
+}
+
+// --- JSON-RPC over stdio ----------------------------------------------------
+function send(obj) {
+  process.stdout.write(JSON.stringify(obj) + "\n");
+}
+
+function sendNotification(method, params) {
+  send({ jsonrpc: "2.0", method, params });
+}
+
+function sendResult(id, result) {
+  send({ jsonrpc: "2.0", id, result });
+}
+
+function sendError(id, code, message) {
+  send({ jsonrpc: "2.0", id, error: { code, message } });
+}
+
+const SERVER_INFO = {
+  name: `relay-${RELAY_TEAM}`,
+  version: "1.0.7",
+};
+
+const CAPABILITIES = {
+  tools: {},
+  experimental: { "claude/channel": {} },
+};
+
+const rl = readline.createInterface({ input: process.stdin });
+
+rl.on("line", (line) => {
+  if (!line.trim()) return;
+  let msg;
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    return;
+  }
+
+  // Notifications (no `id`) — no response.
+  if (msg.id === undefined) {
+    return;
+  }
+
+  switch (msg.method) {
+    case "initialize":
+      sendResult(msg.id, {
+        protocolVersion: msg.params?.protocolVersion || "2024-11-05",
+        serverInfo: SERVER_INFO,
+        capabilities: CAPABILITIES,
+      });
+      break;
+    case "tools/list":
+      sendResult(msg.id, { tools: TOOLS });
+      break;
+    case "tools/call": {
+      const result = callTool(msg.params?.name, msg.params?.arguments);
+      sendResult(msg.id, result);
+      break;
+    }
+    case "ping":
+      sendResult(msg.id, {});
+      break;
+    default:
+      sendError(msg.id, -32601, `Method not found: ${msg.method}`);
+  }
 });
 
-await server.connect(new StdioServerTransport());
-
-// Watch inbox for incoming messages and push them as channel notifications
+// --- Channel push: watch inbox, drain into notifications/claude/channel ----
 let debounceTimer = null;
 
-async function drainInbox() {
+function drainInbox() {
   const inbox = readJson(INBOX_PATH, []);
   if (inbox.length === 0) return;
   writeJson(INBOX_PATH, []);
   for (const msg of inbox) {
-    await server.notification({
-      method: "notifications/claude/channel",
-      params: {
-        content: `[Relay from ${msg.from}] ${msg.message}`,
-        meta: { from: msg.from, sent: msg.sent },
-      },
+    sendNotification("notifications/claude/channel", {
+      content: `[Relay from ${msg.from}] ${msg.message}`,
+      meta: { from: msg.from, sent: msg.sent },
     });
   }
 }
 
 fs.mkdirSync(MESSAGES_DIR, { recursive: true });
 if (!fs.existsSync(INBOX_PATH)) writeJson(INBOX_PATH, []);
-// Use fs.watchFile (polling) instead of fs.watch — fs.watch is unreliable on
-// Windows for cross-process file content changes, fs.watchFile polls and works.
+// fs.watchFile (polling) is required on Windows — fs.watch doesn't fire
+// reliably for cross-process file content changes there.
 fs.watchFile(INBOX_PATH, { interval: 200 }, (curr, prev) => {
   if (curr.mtimeMs === prev.mtimeMs) return;
   clearTimeout(debounceTimer);
