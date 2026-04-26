@@ -48,7 +48,27 @@ If `$agent_name` is `"lead"`, print:
 
 And stop.
 
-## Step 4 — Register the MCP server with `claude mcp add`
+## Step 4 — Refuse to overwrite an existing lead registration
+
+`claude mcp add` doesn't error on duplicate names — it silently overwrites. That makes it dangerous to run join in the same project directory where create was already run, because it would clobber the lead's identity. Guard against that.
+
+Run `claude mcp get relay-$team_name 2>/dev/null` (in the current cwd). Parse the output. If a registration exists AND its `RELAY_NAME=lead`, print:
+
+  This terminal is already registered as "lead" for relay team "$team_name"
+  (project path: <CWD>). Joining as "$agent_name" here would overwrite that
+  identity and break the relay team.
+
+  Open Claude in a DIFFERENT project directory, then run:
+    /relay:join $team_name $agent_name
+
+  there. Each terminal in a relay team must be in its own project dir; that's
+  how each one keeps an isolated RELAY_NAME.
+
+And stop.
+
+If a registration exists with a different `RELAY_NAME` (e.g. you're re-joining under a new name), proceed — the next step will remove and re-add it.
+
+## Step 5 — Register the MCP server with `claude mcp add`
 
 Run this command (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
 
@@ -58,13 +78,13 @@ claude mcp add --transport=stdio --env=RELAY_TEAM=$team_name --env=RELAY_NAME=$a
 
 If `<TEAM_DIR>` or `<SERVER_PATH>` contain spaces, wrap the whole `--env=…` token (or path arg) in double quotes.
 
-If the command fails because `relay-$team_name` already exists in this project's local scope (you're re-joining), first run `claude mcp remove relay-$team_name` and then re-run the add command.
+If the command fails because `relay-$team_name` already exists in this project's local scope (you're re-joining as a different agent name — already past the lead-overwrite guard above), first run `claude mcp remove relay-$team_name` and then re-run the add command.
 
 If `claude` is not on PATH, print the error and stop.
 
 Print: `✓ Registered "relay-$team_name" as "$agent_name" via claude mcp add (scope=local)`.
 
-## Step 5 — Print restart instructions
+## Step 6 — Print restart instructions
 
 Print exactly:
 
