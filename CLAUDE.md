@@ -41,3 +41,8 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 - Forward-slash absolute paths in JSON config (`C:/Users/...`) — works on both Windows and POSIX
 - Lowercase commit messages prefixed by area: `relay: ...`, `squad: ...`, `chore: ...`, `readme: ...`
 - Keep README and code changes in separate commits when their scope diverges
+
+## Git push policy
+
+- **Push only after the whole task is done AND verified.** Don't push partial work, don't push between intermediate steps. Verification means: tests run, dry-runs succeed, or the equivalent for the change at hand.
+- **Always ask before pushing.** Even when the work is complete, don't `git push` autonomously — commit, then ask the user "ready to push?" and wait for confirmation. Committing is local and reversible; pushing isn't.
