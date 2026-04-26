@@ -1,6 +1,6 @@
 ---
 name: new-team
-description: Create a squad agent team. Use this whenever the user wants to start a multi-terminal or cross-project Claude session, coordinate agents across projects, or set up a team. Ensures CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is enabled in settings then creates the team. Always run this before /squad:add-agent.
+description: Create a squad agent team. Use this whenever the user wants to start a multi-terminal or cross-project Claude session, coordinate agents across projects, set up a team, or even just says "I want Claude working in two terminals" or "let's run agents in parallel across projects". Ensures CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is enabled in settings then creates the team. Always run this before /squad:add-agent.
 argument-hint: <team-name>
 arguments: [team_name]
 disable-model-invocation: true
@@ -20,6 +20,14 @@ Print: `✓ Enabled CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` or `✓ Already enable
 ## Step 2 — Create the team
 
 Call TeamCreate with team name `$team_name`.
+
+If the call fails because a team with this name already exists, print:
+
+  Team "$team_name" already exists. To replace it, run:
+    /squad:end-team $team_name
+  Then re-run this command.
+
+And stop.
 
 Extract `leadSessionId` from the response.
 

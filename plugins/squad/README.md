@@ -20,7 +20,7 @@ Creates the team, enables the required env var in `~/.claude/settings.json`, pri
 
 **Step 2 — Still in the lead terminal, generate the join command:**
 ```
-/squad:connect my-team fe-agent
+/squad:add-agent fe-agent
 ```
 Prints ready-to-paste commands in Bash, PowerShell, and CMD.
 

@@ -1,6 +1,6 @@
 ---
 name: add-agent
-description: Generate the join command for an agent to connect to the current squad team. Run from the lead terminal after /squad:new-team. Outputs ready-to-paste commands in Bash, PowerShell, and CMD. Use this whenever you need to bring a teammate from another project terminal into the current team.
+description: Generate the join command for an agent to connect to the current squad team. Run from the lead terminal after /squad:new-team. Outputs ready-to-paste commands in Bash, PowerShell, and CMD. Use this whenever you need to bring a teammate from another project terminal into the current team, or when the user asks "how do I connect from another terminal?" or "add another Claude agent to this session".
 argument-hint: <agent-name>
 arguments: [agent_name]
 disable-model-invocation: true
