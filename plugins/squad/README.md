@@ -7,7 +7,7 @@ Coordinate Claude Code agents across multiple project terminals.
 | Skill | Description |
 |---|---|
 | `/squad:new-team <team-name>` | Create a team and enable agent teams in settings |
-| `/squad:connect <team-name> <agent-name>` | Print the join command for an agent in another terminal |
+| `/squad:connect <team-name> <agent-name>` | Generate the join command to paste in the agent terminal |
 
 ## Usage
 

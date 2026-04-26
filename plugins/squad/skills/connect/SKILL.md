@@ -48,5 +48,4 @@ CMD:
     --team-name "TEAM_NAME" ^
     --parent-session-id "LEAD_SESSION_ID"
 
-After running, type this in the agent terminal to activate the channel:
-  check your inbox from team-lead
+The agent starts pre-connected to the team once the command runs.
