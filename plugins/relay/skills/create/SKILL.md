@@ -79,10 +79,11 @@ The MCP server is registered to THIS terminal's project path (entry in ~/.claude
 
 Next steps in THIS terminal:
   1. Quit Claude Code (Ctrl+D or close).
-  2. Re-run `claude --channels server:relay-$team_name` in the same directory.
+  2. Re-run `claude --dangerously-load-development-channels server:relay-$team_name` in the same directory.
   3. When prompted, choose "Resume previous conversation" — your context is preserved.
+  4. Approve the development-channel confirmation prompt when asked.
 
-The --channels flag enables real-time push delivery — incoming messages appear in your session the moment they're sent, no polling needed. Your conversation context is fully preserved.
+The --dangerously-load-development-channels flag enables real-time push delivery for relay — incoming messages appear in your session automatically as <channel> tags, no polling needed. Locally-defined MCP servers aren't on Claude Code's approved channels allowlist, so this flag is required. (Don't use plain --channels server:relay-$team_name — that won't bypass the allowlist and notifications will silently drop.)
 
 Once restarted you'll have these MCP tools:
   - relay_send(to, message)   send a message to another member

@@ -178,8 +178,11 @@ async function drainInbox() {
 }
 
 fs.mkdirSync(MESSAGES_DIR, { recursive: true });
-fs.watch(MESSAGES_DIR, (eventType, filename) => {
-  if (!filename || filename !== `${RELAY_NAME}.json`) return;
+if (!fs.existsSync(INBOX_PATH)) writeJson(INBOX_PATH, []);
+// Use fs.watchFile (polling) instead of fs.watch — fs.watch is unreliable on
+// Windows for cross-process file content changes, fs.watchFile polls and works.
+fs.watchFile(INBOX_PATH, { interval: 200 }, (curr, prev) => {
+  if (curr.mtimeMs === prev.mtimeMs) return;
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(drainInbox, 150);
+  debounceTimer = setTimeout(drainInbox, 50);
 });

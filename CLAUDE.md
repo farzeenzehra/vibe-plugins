@@ -33,9 +33,12 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 ## Claude Code Channels (push delivery into sessions)
 
 - Declare capability: `experimental: { "claude/channel": {} }` in Server constructor alongside `tools: {}`
-- Push a message: `await server.notification({ method: "notifications/claude/channel", params: { content: "...", meta: { key: "val" } } })` — call after `server.connect()`
-- Start Claude with channels active: `claude --channels server:<mcp-server-name>` — `server:` prefix references an already-registered MCP server (no extra auth)
-- File watcher pattern: `fs.watch(directory, (evt, filename) => { if (filename !== target) return; ... })` — watch parent dir, not the file itself (handles file-not-yet-existing; more reliable on Windows)
+- Push a message: `await server.notification({ method: "notifications/claude/channel", params: { content: "...", meta: { key: "val" } } })` — call after `server.connect()`. `meta` keys must be `[a-zA-Z0-9_]+` only — keys with hyphens are silently dropped.
+- Start Claude with channels active: `claude --dangerously-load-development-channels server:<mcp-server-name>` — the dangerous flag IS the channels flag for non-allowlisted entries (don't combine with `--channels`; the docs say "combining doesn't extend the bypass"). Approve the confirmation prompt at startup.
+- Channels require **claude.ai login** (Pro/Max account or Team/Enterprise). API key auth is not supported.
+- Allowlist: only `claude-plugins-official` channels (telegram, discord, imessage, fakechat) are pre-approved. Custom channels need `--dangerously-load-development-channels` until either (a) submitted to and accepted by `anthropics/claude-plugins-official` or (b) added by a Team/Enterprise admin via `allowedChannelPlugins` in managed settings.
+- **File watcher pattern (Windows-critical):** use `fs.watchFile(path, { interval: 200 }, cb)` — NOT `fs.watch`. `fs.watch` doesn't fire reliably on Windows for cross-process file content changes (verified empirically — drainInbox never triggered with `fs.watch`). `fs.watchFile` polls and works.
+- Server-side debug: `notification returned: undefined` from `server.notification()` is a successful return (the call is fire-and-forget). If notifications don't surface in Claude despite this, the issue is at the client-side allowlist, not the server.
 
 ## Validation before committing
 

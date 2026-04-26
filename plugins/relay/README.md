@@ -1,8 +1,8 @@
 # relay
 
-Cross-terminal Claude Code messaging via MCP — **without losing your conversation context**.
+Cross-terminal Claude Code messaging via MCP — **without losing your conversation context**, and with **real-time push delivery** (no polling required).
 
-Where `/squad:add-agent` requires the second terminal to start a fresh session, relay only asks each terminal to restart once and resume its previous conversation. After that, both terminals share three MCP tools for messaging.
+Where `/squad:add-agent` requires the second terminal to start a fresh session, relay only asks each terminal to restart once and resume its previous conversation. After that, both terminals share MCP tools for messaging, and incoming messages appear automatically as `<channel>` notifications via Claude Code Channels — no manual polling.
 
 ## Skills
 
@@ -15,8 +15,9 @@ Where `/squad:add-agent` requires the second terminal to start a fresh session, 
 ## How it works
 
 - Each terminal runs its own Node.js subprocess as a stdio MCP server (no HTTP, no port management).
-- All subprocesses share state via JSON files in a shared `~/.claude/relay/<team-name>/` directory.
+- All subprocesses share state via JSON files in a shared `<CLAUDE_CONFIG_DIR>/relay/<team-name>/` directory (auto-detected from the active Claude Code data dir).
 - The MCP server is registered via **`claude mcp add --scope local`** (Claude Code's default scope). That CLI writes to `~/.claude.json` *under the current project's path entry* — so two terminals in different project directories get isolated configs and isolated `RELAY_NAME` values, without committing anything to either project repo.
+- The server declares the `claude/channel` capability and uses `fs.watchFile` (200ms polling) to detect inbox changes, then pushes a `notifications/claude/channel` event to Claude Code. The recipient sees the message **immediately** as a `<channel>` notification.
 - Adding an MCP server requires one Claude Code restart per terminal — but the conversation history is preserved when you choose "Resume previous conversation".
 
 ## Usage
@@ -29,13 +30,21 @@ Where `/squad:add-agent` requires the second terminal to start a fresh session, 
 ```
 Sets up the shared `~/.claude/relay/my-team/`, runs `npm install`, and registers the MCP server via `claude mcp add` as `relay-my-team` with `RELAY_NAME=lead`, scoped to this terminal's project path.
 
-**Step 2 — Restart Claude Code in this terminal.** Choose "Resume previous conversation" when prompted.
+**Step 2 — Restart Claude Code in this terminal** with the channel-enabled flag:
+```
+claude --dangerously-load-development-channels server:relay-my-team
+```
+Approve the channel confirmation prompt. Choose "Resume previous conversation" when prompted.
 
 **Step 3 — In another terminal, opened in a DIFFERENT project (e.g. `~/projects/frontend`):**
 ```
 /relay:join my-team agent1
 ```
-Registers `relay-my-team` with `RELAY_NAME=agent1` scoped to *that* terminal's project path. Restart Claude Code. Resume previous conversation.
+Registers `relay-my-team` with `RELAY_NAME=agent1` scoped to *that* terminal's project path. Then restart with:
+```
+claude --dangerously-load-development-channels server:relay-my-team
+```
+Approve the prompt, resume previous conversation.
 
 You can verify either registration with `claude mcp list`.
 
@@ -43,8 +52,8 @@ You can verify either registration with `claude mcp list`.
 ```
 relay_members()                                      # see who's connected
 relay_send(to="agent1", message="please look at X")  # from lead → agent1
-relay_receive()                                      # agent1 reads its inbox
 ```
+Agent1's session sees a `<channel source="relay-my-team" from="lead">please look at X</channel>` notification appear automatically — no `relay_receive` call needed.
 
 **Cleanup:**
 ```
@@ -56,8 +65,8 @@ Run in each terminal that joined.
 
 | Tool | Description |
 |---|---|
-| `relay_send(to, message)` | Write a message to another member's inbox |
-| `relay_receive()` | Read and clear your own inbox |
+| `relay_send(to, message)` | Push a message to another member — they see it as a `<channel>` notification automatically |
+| `relay_receive()` | Manually read and clear your own inbox (rarely needed since channels push automatically) |
 | `relay_members()` | List all registered members |
 
 ## Requirements
@@ -69,8 +78,9 @@ Run in each terminal that joined.
 
 ## Limitations
 
-- **Polling, not push** — `relay_receive()` must be called explicitly; there are no background notifications.
 - **One restart per terminal** — unavoidable for MCP server activation. Conversation context survives via "Resume previous conversation".
+- **Requires `--dangerously-load-development-channels`** during the channels research preview — relay isn't on Anthropic's approved channel allowlist yet. The flag prompts for confirmation at startup; approve once and the channel is active for that session. (Team/Enterprise admins can pre-approve relay via managed settings' `allowedChannelPlugins` to skip the flag.)
+- **Channels require claude.ai login** — API key auth is not supported for channels.
 
 ## Installation
 
