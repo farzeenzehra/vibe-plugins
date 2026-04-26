@@ -30,11 +30,19 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 - Skills copy `server.js` + `package.json` into a per-use runtime dir (e.g. `~/.claude/relay/<team>/`) and run `npm install` there. **Existing runtime copies don't auto-upgrade** when the plugin updates — call this out in the plugin README.
 - For **per-terminal** MCP env vars (e.g. each terminal needs a different `RELAY_NAME`), register via the CLI: `claude mcp add --transport=stdio --env=KEY1=v1 --env=KEY2=v2 <name> -- node <path>`. **Use `--opt=val` form** (with `=`) — the `--env` flag is variadic and will otherwise greedily eat the server name as another env var. The default `--scope local` writes to `~/.claude.json` keyed by the current project path, so two terminals in different project dirs get isolated entries. Note: `mcpServers` in `<cwd>/.claude/settings.local.json` is NOT loaded by Claude Code — that file is for general settings, not MCP. Don't try to write MCP config there.
 
+## Claude Code Channels (push delivery into sessions)
+
+- Declare capability: `experimental: { "claude/channel": {} }` in Server constructor alongside `tools: {}`
+- Push a message: `await server.notification({ method: "notifications/claude/channel", params: { content: "...", meta: { key: "val" } } })` — call after `server.connect()`
+- Start Claude with channels active: `claude --channels server:<mcp-server-name>` — `server:` prefix references an already-registered MCP server (no extra auth)
+- File watcher pattern: `fs.watch(directory, (evt, filename) => { if (filename !== target) return; ... })` — watch parent dir, not the file itself (handles file-not-yet-existing; more reliable on Windows)
+
 ## Validation before committing
 
 - `node --check <path>` for JS syntax
 - `node -e "JSON.parse(require('fs').readFileSync('<path>','utf8'))"` for JSON validity
 - For MCP servers: spawn once with required env vars (e.g. `RELAY_DIR`, `RELAY_NAME`, `RELAY_TEAM`) and confirm side-effect files (e.g. `members.json`) appear correctly
+- Bump `plugin.json` version whenever skills or server.js change — plugin system won't re-download unless the version increments
 
 ## Conventions
 
