@@ -66,12 +66,13 @@ The MCP server is registered to THIS terminal's project path. It won't appear in
 
 Next steps in THIS terminal:
   1. Quit Claude Code (Ctrl+D or close).
-  2. Re-run `claude` in the same directory.
+  2. Re-run `claude --channels server:relay-$team_name` in the same directory.
   3. When prompted, choose "Resume previous conversation" — your context is preserved.
+
+The --channels flag enables real-time push delivery — incoming messages appear in your session the moment they're sent, no polling needed. Your conversation context is fully preserved.
 
 Once restarted you'll have these MCP tools:
   - relay_send(to, message)   send a message to another member (e.g. to="lead")
-  - relay_receive()           read and clear your inbox
   - relay_members()           list registered members
 
 To verify the server is registered, run: `claude mcp list`

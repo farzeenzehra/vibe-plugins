@@ -133,7 +133,12 @@ function relayMembers() {
 
 const server = new Server(
   { name: `relay-${RELAY_TEAM}`, version: "1.0.0" },
-  { capabilities: { tools: {} } },
+  {
+    capabilities: {
+      tools: {},
+      experimental: { "claude/channel": {} },
+    },
+  },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
@@ -153,3 +158,28 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 });
 
 await server.connect(new StdioServerTransport());
+
+// Watch inbox for incoming messages and push them as channel notifications
+let debounceTimer = null;
+
+async function drainInbox() {
+  const inbox = readJson(INBOX_PATH, []);
+  if (inbox.length === 0) return;
+  writeJson(INBOX_PATH, []);
+  for (const msg of inbox) {
+    await server.notification({
+      method: "notifications/claude/channel",
+      params: {
+        content: `[Relay from ${msg.from}] ${msg.message}`,
+        meta: { from: msg.from, sent: msg.sent },
+      },
+    });
+  }
+}
+
+fs.mkdirSync(MESSAGES_DIR, { recursive: true });
+fs.watch(MESSAGES_DIR, (eventType, filename) => {
+  if (!filename || filename !== `${RELAY_NAME}.json`) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(drainInbox, 150);
+});
