@@ -28,6 +28,7 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 - `@modelcontextprotocol/sdk@^1.0.0`, low-level `Server` + `setRequestHandler(ListToolsRequestSchema, ...)` + `setRequestHandler(CallToolRequestSchema, ...)`. Most version-stable, avoids the zod dependency that `McpServer` requires.
 - ESM (`"type": "module"` in package.json)
 - Skills copy `server.js` + `package.json` into a per-use runtime dir (e.g. `~/.claude/relay/<team>/`) and run `npm install` there. **Existing runtime copies don't auto-upgrade** when the plugin updates — call this out in the plugin README.
+- For **per-terminal** MCP env vars (e.g. each terminal needs a different `RELAY_NAME`), write the MCP server registration to **project-local** `<cwd>/.claude/settings.local.json`, not user-global `~/.claude/settings.json`. Global is shared across all running Claude instances on the user account, so writes from one terminal trample another. Project-local files are isolated per CWD.
 
 ## Validation before committing
 
