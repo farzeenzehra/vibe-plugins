@@ -1,6 +1,6 @@
 ---
 name: new-team
-description: Create a squad agent team. Ensures CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is enabled in settings, then creates the team. Run this once before connecting agents with /squad:add-agent.
+description: Create a squad agent team. Use this whenever the user wants to start a multi-terminal or cross-project Claude session, coordinate agents across projects, or set up a team. Ensures CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is enabled in settings then creates the team. Always run this before /squad:add-agent.
 argument-hint: <team-name>
 arguments: [team_name]
 disable-model-invocation: true
@@ -13,12 +13,9 @@ Create a new squad team named "$team_name".
 
 Read `~/.claude/settings.json`. If the file does not exist, treat its contents as `{}`.
 
-Check if `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` equals `"1"`:
-- If the `env` key does not exist: create it, add `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` with value `"1"` under it, and write the updated JSON back to the file.
-- If the `env` key exists but `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set or not `"1"`: add or update the value and write the file.
-- If already set to `"1"`: no change needed.
+Check if `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` equals `"1"`. If not, update the file — creating the `env` key if it doesn't exist — and set the value to `"1"`. Write the result back as valid JSON.
 
-In all cases print the result: either `✓ Enabled CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS in ~/.claude/settings.json` or `✓ Already enabled`.
+Print: `✓ Enabled CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` or `✓ Already enabled`.
 
 ## Step 2 — Create the team
 

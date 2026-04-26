@@ -15,7 +15,7 @@ Generate the join command for "$agent_name" to join the current squad team.
    - List all subdirectories — each is a team name.
    - If none exist: print `No active team found. Run /squad:new-team <team-name> first.` and stop.
    - If exactly one exists: use it.
-   - If multiple exist: list them and ask the user which one to use.
+   - If multiple exist: pick the most recently modified config file.
    - Read `~/.claude/teams/<team-name>/config.json` and extract `leadSessionId` and the team name. Refer to these as LEAD_SESSION_ID and TEAM_NAME below.
 
 2. Print the following as plain text, replacing AGENT_NAME with $agent_name, TEAM_NAME and LEAD_SESSION_ID with the values from step 1:

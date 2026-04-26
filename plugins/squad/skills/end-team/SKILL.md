@@ -1,10 +1,10 @@
 ---
 name: end-team
-description: Delete an existing squad team. Run this before creating a new one if you are already leading a team.
+description: Delete an existing squad team. Use this when the user wants to start a new team, clean up after a session, or gets an error saying they are already leading a team.
 argument-hint: <team-name>
 arguments: [team_name]
 disable-model-invocation: true
-allowed-tools: TeamDelete
+allowed-tools: Read TeamDelete
 ---
 
 End the squad team named "$team_name".
