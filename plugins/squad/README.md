@@ -1,0 +1,38 @@
+# squad
+
+Coordinate Claude Code agents across multiple project terminals.
+
+## Skills
+
+| Skill | Description |
+|---|---|
+| `/squad:new-team <team-name>` | Create a team and enable agent teams in settings |
+| `/squad:connect <team-name> <agent-name>` | Print the join command for an agent in another terminal |
+
+## Usage
+
+**Step 1 — In your lead terminal (e.g. backend project):**
+```
+/squad:new-team my-team
+```
+Creates the team, enables the required env var in `~/.claude/settings.json`, prints the lead session ID.
+
+**Step 2 — Still in the lead terminal, generate the join command:**
+```
+/squad:connect my-team fe-agent
+```
+Prints ready-to-paste commands in Bash, PowerShell, and CMD.
+
+**Step 3 — In the agent terminal (e.g. frontend project):**
+Paste and run the printed command. Then type:
+```
+check your inbox from team-lead
+```
+to activate the message channel.
+
+## Installation
+
+```
+/plugin marketplace add FarzeenZehra/vibe-plugins
+/plugin install squad@vibe-plugins
+```

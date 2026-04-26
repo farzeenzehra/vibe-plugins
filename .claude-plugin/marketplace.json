@@ -1,0 +1,13 @@
+{
+  "name": "vibe-plugins",
+  "owner": {
+    "name": "Farzeen Zehra"
+  },
+  "plugins": [
+    {
+      "name": "squad",
+      "source": "./plugins/squad",
+      "description": "Multi-project agent team coordination — create teams and connect agents across terminals"
+    }
+  ]
+}
