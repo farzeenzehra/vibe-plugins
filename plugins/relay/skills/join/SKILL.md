@@ -14,8 +14,20 @@ This skill uses `claude mcp add --scope local` (the default), which stores the s
 
 Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form.
 
+Detect the active Claude data dir:
+
+```bash
+if [ -f "$HOME/.claude-account2/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude-account2"
+elif [ -f "$HOME/.claude/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude"
+else
+  CLAUDE_DATA_DIR="$HOME/.claude"
+fi
+```
+
 Define:
-- TEAM_DIR = `HOME/.claude/relay/$team_name`
+- TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`
 - SERVER_PATH = `TEAM_DIR/server.js`
 
 ## Step 2 — Verify the team exists

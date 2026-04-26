@@ -8,14 +8,26 @@ allowed-tools: Bash Read Write
 
 Set up a relay team named "$team_name" rooted in this terminal as the lead.
 
-The plugin's bundled server lives at `${CLAUDE_PLUGIN_ROOT}/server/server.js` and `${CLAUDE_PLUGIN_ROOT}/server/package.json`. The shared team runtime directory is `<HOME>/.claude/relay/$team_name`. The MCP server registration uses **`claude mcp add --scope local`** (the default scope), which writes the server into `~/.claude.json` under THIS terminal's current project path. Different terminals in different project dirs get isolated entries — each with its own `RELAY_NAME` — without polluting any project repo.
+The plugin's bundled server lives at `${CLAUDE_PLUGIN_ROOT}/server/server.js` and `${CLAUDE_PLUGIN_ROOT}/server/package.json`. The shared team runtime directory lives inside the active Claude data dir. The MCP server registration uses **`claude mcp add --scope local`** (the default scope), which writes the server into `~/.claude.json` under THIS terminal's current project path. Different terminals in different project dirs get isolated entries — each with its own `RELAY_NAME` — without polluting any project repo.
 
 ## Step 1 — Resolve paths
 
 Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form throughout.
 
+Detect the active Claude data dir — check which directory contains `.claude.json` (created by `claude mcp add`):
+
+```bash
+if [ -f "$HOME/.claude-account2/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude-account2"
+elif [ -f "$HOME/.claude/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude"
+else
+  CLAUDE_DATA_DIR="$HOME/.claude"
+fi
+```
+
 Define:
-- TEAM_DIR = `HOME/.claude/relay/$team_name`
+- TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`
 - SERVER_PATH = `TEAM_DIR/server.js`
 
 ## Step 2 — Bail if the team already exists

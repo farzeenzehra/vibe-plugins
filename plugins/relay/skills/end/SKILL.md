@@ -12,7 +12,19 @@ End the relay team named "$team_name" in this terminal.
 
 Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form.
 
-Define TEAM_DIR = `HOME/.claude/relay/$team_name`.
+Detect the active Claude data dir:
+
+```bash
+if [ -f "$HOME/.claude-account2/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude-account2"
+elif [ -f "$HOME/.claude/.claude.json" ]; then
+  CLAUDE_DATA_DIR="$HOME/.claude"
+else
+  CLAUDE_DATA_DIR="$HOME/.claude"
+fi
+```
+
+Define TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`.
 
 ## Step 2 — Remove the MCP server with `claude mcp remove`
 
