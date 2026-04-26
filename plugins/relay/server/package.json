@@ -1,6 +1,6 @@
 {
   "name": "relay-server",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Zero-dependency stdio MCP server for relay messaging between Claude Code terminals",
   "type": "module",
   "private": true,

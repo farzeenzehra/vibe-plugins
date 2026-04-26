@@ -48,37 +48,42 @@ If `$agent_name` is `"lead"`, print:
 
 And stop.
 
-## Step 4 — Refuse to overwrite an existing lead registration
+## Step 4 — Refuse to overwrite an existing relay-$team_name registration
 
-`claude mcp add` doesn't error on duplicate names — it silently overwrites. That makes it dangerous to run join in the same project directory where create was already run, because it would clobber the lead's identity. Guard against that.
+`claude mcp add` silently overwrites duplicate names. Running join in a project dir that already has a `relay-$team_name` registration would clobber whatever identity is there (lead OR agent), breaking the team. Always check first.
 
-Run `claude mcp get relay-$team_name 2>/dev/null` (in the current cwd). Parse the output. If a registration exists AND its `RELAY_NAME=lead`, print:
+Run `claude mcp get relay-$team_name 2>/dev/null` (in the current cwd). If a registration exists, extract its `RELAY_NAME`. Then:
 
-  This terminal is already registered as "lead" for relay team "$team_name"
-  (project path: <CWD>). Joining as "$agent_name" here would overwrite that
+- If existing `RELAY_NAME == "$agent_name"` (you're re-joining under the same name in the same project), proceed — Step 5 will remove and re-add to refresh paths/version.
+- Otherwise (lead, or a different agent name) print:
+
+  This terminal already has a relay-$team_name registration (RELAY_NAME=<existing-name>)
+  in project path: <CWD>. Joining as "$agent_name" here would silently overwrite that
   identity and break the relay team.
 
-  Open Claude in a DIFFERENT project directory, then run:
+  Open Claude in a DIFFERENT project directory and run:
     /relay:join $team_name $agent_name
+  there.
 
-  there. Each terminal in a relay team must be in its own project dir; that's
-  how each one keeps an isolated RELAY_NAME.
+  Or, if you genuinely want to RENAME this terminal in-place from <existing-name> to
+  $agent_name, run /relay:end $team_name first, then re-run /relay:join.
+
+  Each terminal in a relay team must be in its own project dir; that's how each one
+  keeps an isolated RELAY_NAME.
 
 And stop.
 
-If a registration exists with a different `RELAY_NAME` (e.g. you're re-joining under a new name), proceed — the next step will remove and re-add it.
-
 ## Step 5 — Register the MCP server with `claude mcp add`
 
-Run this command (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
+If a registration with the same `$agent_name` already exists (re-join case from Step 4), first run `claude mcp remove relay-$team_name` so the add command doesn't silently overwrite — it gives a clean log line.
+
+Run (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
 
 ```
 claude mcp add --transport=stdio --env=RELAY_TEAM=$team_name --env=RELAY_NAME=$agent_name --env=RELAY_ROLE=agent --env=RELAY_DIR=<TEAM_DIR> relay-$team_name -- node <SERVER_PATH>
 ```
 
 If `<TEAM_DIR>` or `<SERVER_PATH>` contain spaces, wrap the whole `--env=…` token (or path arg) in double quotes.
-
-If the command fails because `relay-$team_name` already exists in this project's local scope (you're re-joining as a different agent name — already past the lead-overwrite guard above), first run `claude mcp remove relay-$team_name` and then re-run the add command.
 
 If `claude` is not on PATH, print the error and stop.
 
