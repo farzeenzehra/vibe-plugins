@@ -5,7 +5,7 @@ A marketplace of Claude Code plugins.
 ## Add this marketplace
 
 ```
-/plugin marketplace add FarzeenZehra/vibe-plugins
+/plugin marketplace add farzeenzehra/vibe-plugins
 ```
 
 ## Plugins

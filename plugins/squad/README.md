@@ -24,15 +24,11 @@ Creates the team, enables the required env var in `~/.claude/settings.json`, pri
 Prints ready-to-paste commands in Bash, PowerShell, and CMD.
 
 **Step 3 — In the agent terminal (e.g. frontend project):**
-Paste and run the printed command. Then type:
-```
-check your inbox from team-lead
-```
-to activate the message channel.
+Paste and run the printed command. The agent starts pre-connected to the team.
 
 ## Installation
 
 ```
-/plugin marketplace add FarzeenZehra/vibe-plugins
+/plugin marketplace add farzeenzehra/vibe-plugins
 /plugin install squad@vibe-plugins
 ```

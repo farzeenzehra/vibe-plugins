@@ -30,5 +30,5 @@ Print the following as plain text (replace LEAD_SESSION_ID with the actual value
 Squad "$team_name" ready.
 Lead session: LEAD_SESSION_ID
 
-To connect an agent from another terminal, run from this session:
+To generate the join command for an agent, run in this terminal:
   /squad:connect $team_name <agent-name>
