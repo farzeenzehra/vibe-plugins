@@ -12,17 +12,13 @@ End the relay team named "$team_name" in this terminal.
 
 Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form.
 
-Detect the active Claude data dir:
+Detect the active Claude data dir from the `CLAUDE_CONFIG_DIR` env var (Claude Code injects this into every skill run):
 
 ```bash
-if [ -f "$HOME/.claude-account2/.claude.json" ]; then
-  CLAUDE_DATA_DIR="$HOME/.claude-account2"
-elif [ -f "$HOME/.claude/.claude.json" ]; then
-  CLAUDE_DATA_DIR="$HOME/.claude"
-else
-  CLAUDE_DATA_DIR="$HOME/.claude"
-fi
+CLAUDE_DATA_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 ```
+
+Use forward-slash form (on Windows, convert backslashes).
 
 Define TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`.
 
