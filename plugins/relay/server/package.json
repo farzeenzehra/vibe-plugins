@@ -1,0 +1,11 @@
+{
+  "name": "relay-server",
+  "version": "1.0.0",
+  "description": "stdio MCP server for relay messaging between Claude Code terminals",
+  "type": "module",
+  "private": true,
+  "main": "server.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

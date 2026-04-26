@@ -8,6 +8,11 @@
       "name": "squad",
       "source": "./plugins/squad",
       "description": "Multi-project agent team coordination — create teams and connect agents across terminals"
+    },
+    {
+      "name": "relay",
+      "source": "./plugins/relay",
+      "description": "Cross-terminal Claude Code messaging via MCP — preserves conversation context (one restart, then resume)"
     }
   ]
 }
