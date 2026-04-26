@@ -14,8 +14,8 @@ Create a new squad team named "$team_name".
 Read `~/.claude/settings.json`. If the file does not exist, treat its contents as `{}`.
 
 Check if `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` equals `"1"`:
-- If not set: add it under the `env` key and write the updated JSON back to the file. Print `✓ Enabled CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS in ~/.claude/settings.json`
-- If already set: print `✓ CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS already enabled`
+- If not set: add it under the `env` key and write the updated JSON back to the file. Print: ✓ Enabled CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS in ~/.claude/settings.json
+- If already set: print: ✓ CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS already enabled
 
 ## Step 2 — Create the team
 
@@ -25,12 +25,10 @@ Extract `leadSessionId` from the response.
 
 ## Step 3 — Print summary
 
-Print exactly this (fill in all values):
+Print the following as plain text (replace LEAD_SESSION_ID with the actual value from step 2):
 
-```
 Squad "$team_name" ready.
-Lead session: <leadSessionId>
+Lead session: LEAD_SESSION_ID
 
 To connect an agent from another terminal, run from this session:
   /squad:connect $team_name <agent-name>
-```
