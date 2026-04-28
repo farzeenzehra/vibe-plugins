@@ -56,5 +56,6 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 
 ## Git push policy
 
+- **Bump `plugin.json` version before every commit that touches a plugin.** Any change to a skill (`SKILL.md`) or server (`server.js`) must increment the version — the plugin system won't re-download otherwise. Do this before staging, not after.
 - **Push only after the whole task is done AND verified.** Don't push partial work, don't push between intermediate steps. Verification means: tests run, dry-runs succeed, or the equivalent for the change at hand.
 - **Always ask before pushing.** Even when the work is complete, don't `git push` autonomously — commit, then ask the user "ready to push?" and wait for confirmation. Committing is local and reversible; pushing isn't.

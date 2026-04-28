@@ -3,7 +3,6 @@ name: new-team
 description: Create a squad agent team. Use this whenever the user wants to start a multi-terminal or cross-project Claude session, coordinate agents across projects, set up a team, or even just says "I want Claude working in two terminals" or "let's run agents in parallel across projects". Ensures CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is enabled in settings then creates the team. Always run this before /squad:add-agent.
 argument-hint: <team-name>
 arguments: [team_name]
-disable-model-invocation: true
 allowed-tools: Read Write TeamCreate
 ---
 

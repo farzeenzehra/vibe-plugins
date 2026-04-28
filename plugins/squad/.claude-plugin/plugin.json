@@ -1,7 +1,7 @@
 {
   "name": "squad",
-  "description": "Coordinate Claude Code agents across multiple project terminals. Create a team with /squad:new-team, then connect agents from other terminals with /squad:connect.",
-  "version": "1.0.1",
+  "description": "Coordinate Claude Code agents across multiple project terminals. Create a team with /squad:new-team, then add agents from other terminals with /squad:add-agent.",
+  "version": "1.0.2",
   "author": {
     "name": "Farzeen Zehra"
   }
