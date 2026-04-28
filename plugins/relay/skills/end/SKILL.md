@@ -1,6 +1,6 @@
 ---
 name: end
-description: End a relay team in this terminal. Removes the relay MCP server from this terminal's local-scope project entry in ~/.claude.json (via `claude mcp remove`) and (the first time it runs) deletes the shared ~/.claude/relay/<team-name>/. Run in every terminal that joined to fully clean up. Use when the relay session is done, before re-creating a team with the same name, or to recover from a broken state.
+description: End a relay team in this terminal. Deletes this terminal's cwd-keyed identity file at ~/.claude/relay/identities/<hash>.json, and (if no other identity files reference the team) deletes the shared ~/.claude/relay/<team-name>/ directory. Run in every terminal that joined to fully clean up. Use when the relay session is done, before re-creating a team with the same name, or to recover from a broken state.
 argument-hint: <team-name>
 arguments: [team_name]
 allowed-tools: Bash Read Write
@@ -10,39 +10,53 @@ End the relay team named "$team_name" in this terminal.
 
 ## Step 1 — Resolve paths
 
-Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form.
+```bash
+node -e "
+const os=require('os'),path=require('path'),crypto=require('crypto');
+const home=os.homedir().replace(/\\\\/g,'/');
+const dataDir=(process.env.CLAUDE_CONFIG_DIR||(home+'/.claude')).replace(/\\\\/g,'/');
+const hash=crypto.createHash('sha256').update(process.cwd()).digest('hex').slice(0,16);
+console.log(JSON.stringify({dataDir,hash,
+  teamDir:dataDir+'/relay/$team_name',
+  identitiesDir:dataDir+'/relay/identities',
+  identityFile:dataDir+'/relay/identities/'+hash+'.json'}));"
+```
 
-Detect the active Claude data dir from the `CLAUDE_CONFIG_DIR` env var (Claude Code injects this into every skill run):
+Capture `teamDir`, `identitiesDir`, `identityFile`.
+
+## Step 2 — Delete this terminal's identity file
+
+If `identityFile` exists, read it first to confirm it actually references `$team_name`:
+
+- If its `team` matches `$team_name`, delete the file. Print: `✓ Removed identity file <identityFile>`.
+- If its `team` does not match (e.g., this cwd is in a different team), print: `(this terminal's identity references team "<other>", not "$team_name" — leaving it alone)` and skip to Step 3.
+
+If `identityFile` does not exist, print: `(this terminal had no identity for "$team_name" — already removed or never joined)`.
+
+## Step 3 — Decide whether to delete the shared team directory
+
+Scan `identitiesDir` for any remaining files that reference this team:
 
 ```bash
-CLAUDE_DATA_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+node -e "
+const fs=require('fs'),path=require('path');
+const dir='<identitiesDir>';
+let inUse=false;
+try {
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const j=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));
+      if (j.team==='$team_name') { inUse=true; break; }
+    } catch {}
+  }
+} catch {}
+console.log(inUse?'inuse':'free');"
 ```
 
-Use forward-slash form (on Windows, convert backslashes).
-
-Define TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`.
-
-## Step 2 — Remove the MCP server with `claude mcp remove`
-
-Run:
-
-```
-claude mcp remove relay-$team_name
-```
-
-If the command exits 0, print: `✓ Removed MCP server "relay-$team_name" from this project's local scope`.
-
-If it errors with "not found" (or similar), print: `(MCP server "relay-$team_name" was not registered in this terminal — already removed or never added)`.
-
-If `claude` is not on PATH, print the error but continue to step 3.
-
-## Step 3 — Delete the shared team directory
-
-If `TEAM_DIR` exists, delete it recursively (Bash: `rm -rf "<TEAM_DIR>"`).
-
-Print: `✓ Deleted TEAM_DIR` or `(team directory was already gone — another terminal already cleaned it up)`.
-
-Note: the team directory at `~/.claude/relay/$team_name/` is **shared** across all terminals in the team. Only one terminal needs to delete it. Other terminals' MCP subprocesses will start failing once it's gone, and their `claude mcp` registration is harmless leftover until they run `/relay:end $team_name` themselves.
+- If `free` and `teamDir` exists, delete `teamDir` recursively (`rm -rf "<teamDir>"`). Print: `✓ Deleted shared team dir <teamDir>`.
+- If `inuse`, print: `(other terminals are still in this team — leaving <teamDir> in place)`.
+- If `teamDir` doesn't exist, print: `(team directory was already gone)`.
 
 ## Step 4 — Print restart hint
 
@@ -50,8 +64,8 @@ Print exactly:
 
 Relay team "$team_name" cleaned up in this terminal.
 
-To fully unload the MCP server here, restart Claude Code (resume the conversation if you want to keep context).
+To fully unload the MCP server's awareness, restart Claude Code (resume the conversation if you want to keep context) — though the plugin-declared server will still load in the new session, it'll have no identity here and serve no relay tools.
 
 Other terminals that joined this team should also run:
   /relay:end $team_name
-…in their own project directories — each one needs to remove its own entry from ~/.claude.json.
+…in their own project directories — each one needs to remove its own identity file.

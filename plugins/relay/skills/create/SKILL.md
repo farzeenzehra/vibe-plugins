@@ -1,6 +1,6 @@
 ---
 name: create
-description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Copies a zero-dependency MCP server into the active Claude data dir's relay/<team-name>/ folder and registers it via `claude mcp add --scope local` (per-project-path, so two terminals in different projects get isolated configs without committing anything to either repo). No npm install needed — the server is pure Node.js stdio JSON-RPC. After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
+description: Create a relay team in the lead terminal. Use whenever the user wants two or more Claude Code terminals to message each other while keeping their existing conversation context (unlike /squad:add-agent which starts a fresh agent session). Writes a cwd-keyed identity file at ~/.claude/relay/identities/<hash>.json and the shared team directory at ~/.claude/relay/<team-name>/. The MCP server is auto-loaded from the plugin in every session, so no claude mcp add is needed. After it runs, the user must restart Claude Code once and choose "Resume previous conversation".
 argument-hint: <team-name>
 arguments: [team_name]
 allowed-tools: Bash Read Write
@@ -8,82 +8,82 @@ allowed-tools: Bash Read Write
 
 Set up a relay team named "$team_name" rooted in this terminal as the lead.
 
-The plugin's bundled server lives at `${CLAUDE_PLUGIN_ROOT}/server/server.js` and `${CLAUDE_PLUGIN_ROOT}/server/package.json`. The shared team runtime directory lives inside the active Claude data dir. The MCP server registration uses **`claude mcp add --scope local`** (the default scope), which writes the server into `~/.claude.json` under THIS terminal's current project path. Different terminals in different project dirs get isolated entries — each with its own `RELAY_NAME` — without polluting any project repo.
+The relay MCP server is auto-loaded from the plugin's bundled `.mcp.json` in every Claude Code session. It looks up an identity file keyed by the session's current working directory; when found, it joins that team. This skill writes that identity file plus the shared team directory.
 
 ## Step 1 — Resolve paths
 
-Determine `HOME` (Bash: `echo $HOME`; Node: `node -e "console.log(require('os').homedir())"`). Use forward-slash form throughout.
-
-Detect the active Claude data dir from the `CLAUDE_CONFIG_DIR` env var (Claude Code injects this into every skill run):
+Run this Node one-liner to compute everything in one shot (forward-slash form, cwd hash, all derived paths):
 
 ```bash
-CLAUDE_DATA_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+node -e "
+const os=require('os'),path=require('path'),crypto=require('crypto');
+const home=os.homedir().replace(/\\\\/g,'/');
+const cwd=process.cwd().replace(/\\\\/g,'/');
+const dataDir=(process.env.CLAUDE_CONFIG_DIR||(home+'/.claude')).replace(/\\\\/g,'/');
+const hash=crypto.createHash('sha256').update(process.cwd()).digest('hex').slice(0,16);
+console.log(JSON.stringify({home,cwd,dataDir,hash,
+  teamDir:dataDir+'/relay/$team_name',
+  identityFile:dataDir+'/relay/identities/'+hash+'.json'}));"
 ```
 
-Use forward-slash form (on Windows, convert backslashes).
+Capture `teamDir` and `identityFile` from the output.
 
-Define:
-- TEAM_DIR = `CLAUDE_DATA_DIR/relay/$team_name`
-- SERVER_PATH = `TEAM_DIR/server.js`
+## Step 2 — Refuse if the team or identity already exist
 
-## Step 2 — Bail if the team already exists
+If `teamDir` exists, print:
 
-If `TEAM_DIR` exists, print:
-
-  Relay team "$team_name" already exists at TEAM_DIR.
-  To rebuild it from scratch, run:
-    /relay:end $team_name
-  in any terminal that joined, then re-run this command.
+  Relay team "$team_name" already exists at <teamDir>.
+  To rebuild it from scratch, run /relay:end $team_name in any terminal that joined, then re-run this command.
 
 And stop.
 
-## Step 3 — Create the team directory and copy server files
+If `identityFile` exists, print:
 
-Create `TEAM_DIR` (recursively).
+  This terminal (cwd: <cwd>) already has a relay identity for cwd-hash <hash>.
+  Run /relay:end <existing-team> first, or open Claude in a different project directory.
 
-Copy:
-- `${CLAUDE_PLUGIN_ROOT}/server/server.js` → `SERVER_PATH`
-- `${CLAUDE_PLUGIN_ROOT}/server/package.json` → `TEAM_DIR/package.json`
+And stop.
 
-(Use Bash `cp` or read+write — either is fine.)
+## Step 3 — Write the team directory and the identity file
 
-The server is **zero-dependency** — pure Node.js stdio JSON-RPC, no `@modelcontextprotocol/sdk` required. There's nothing to `npm install` and no `node_modules` to manage.
+Create `teamDir` (recursively).
 
-## Step 4 — Register the MCP server with `claude mcp add`
+Write `identityFile` with this exact JSON content (replace `$team_name`):
 
-Run this command (replacing `<TEAM_DIR>` and `<SERVER_PATH>` with the resolved forward-slash paths). The `=` after each option is required — the CLI's `--env` is variadic and would otherwise eat the server name:
-
+```json
+{
+  "team": "$team_name",
+  "name": "lead",
+  "role": "lead"
+}
 ```
-claude mcp add --transport=stdio --env=RELAY_TEAM=$team_name --env=RELAY_NAME=lead --env=RELAY_ROLE=lead --env=RELAY_DIR=<TEAM_DIR> relay-$team_name -- node <SERVER_PATH>
-```
 
-If `<TEAM_DIR>` or `<SERVER_PATH>` contain spaces, wrap the whole `--env=…` token (or the path arg) in double quotes — e.g. `"--env=RELAY_DIR=C:/Users/some name/.claude/relay/team"`.
+Use Bash `mkdir -p` and a Node `fs.writeFileSync` (or `cat <<EOF`) to create both. The identity file's parent dir (`<dataDir>/relay/identities/`) may not exist yet — create it first.
 
-If the command fails (e.g., `claude` not on PATH, or `relay-$team_name` already exists in this project's local scope), print stderr and stop.
+Print: `✓ Wrote identity file at <identityFile>` and `✓ Created team dir at <teamDir>`.
 
-Print: `✓ Registered "relay-$team_name" via claude mcp add (scope=local, scoped to this project path)`.
-
-## Step 5 — Print restart instructions
+## Step 4 — Print restart instructions
 
 Print exactly:
 
-Relay team "$team_name" is set up.
+Relay team "$team_name" is set up. This terminal is registered as "lead".
 
-The MCP server is registered to THIS terminal's project path (entry in ~/.claude.json). It won't appear in any other project — that's how each terminal in this team gets its own RELAY_NAME.
+Identity file: <identityFile>
+Team dir:     <teamDir>
+
+The relay MCP server is declared in the plugin and auto-loads in every Claude Code session — no `claude mcp add` needed. The server reads this identity file at startup based on your cwd.
 
 Next steps in THIS terminal:
   1. Quit Claude Code (Ctrl+D or close).
-  2. Re-run `claude --dangerously-load-development-channels server:relay-$team_name` in the same directory.
+  2. Re-run `claude --dangerously-load-development-channels server:relay` in the same directory.
   3. When prompted, choose "Resume previous conversation" — your context is preserved.
   4. Approve the development-channel confirmation prompt when asked.
 
-The --dangerously-load-development-channels flag enables real-time push delivery for relay — incoming messages appear in your session automatically as <channel> tags, no polling needed. Locally-defined MCP servers aren't on Claude Code's approved channels allowlist, so this flag is required. (Don't use plain --channels server:relay-$team_name — that won't bypass the allowlist and notifications will silently drop.)
+The --dangerously-load-development-channels flag enables real-time push delivery — incoming messages appear in your session as <channel> tags automatically. The plugin's MCP server isn't on Claude Code's approved channels allowlist, so this flag is required.
 
 Once restarted you'll have these MCP tools:
   - relay_send(to, message)   send a message to another member
   - relay_members()           list registered members
-
-To verify the server is registered, run: `claude mcp list`
 
 To bring another terminal into this team, in that terminal's project directory run:
   /relay:join $team_name <agent-name>

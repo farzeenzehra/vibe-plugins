@@ -4,32 +4,56 @@
 // Node built-ins — no @modelcontextprotocol/sdk, no node_modules, no
 // npm install at runtime.
 //
+// Identity model: this single MCP server is auto-loaded by the plugin in
+// every Claude Code session. It looks up an identity file keyed by the
+// session's cwd at ~/.claude/relay/identities/<sha256(cwd)>.json. If
+// found, it joins that team. If not, it serves an empty tool list — the
+// model sees no relay tools, the process stays idle.
+//
 // Storage model: one file per message, not a single inbox JSON. Sender
 // creates a new file in <messages-dir>/<recipient>/<uuid>.json; recipient
-// reads each file then unlinks it. This eliminates read-modify-write races
-// (concurrent senders) and read-then-clear races (drainInbox vs. arriving
-// messages), and avoids the Windows non-atomic-write problem with a single
-// shared inbox file.
+// reads each file then unlinks it. Eliminates read-modify-write races
+// and Windows non-atomic-write problems with shared inbox files.
 import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 
-const RELAY_DIR = process.env.RELAY_DIR;
-const RELAY_NAME = process.env.RELAY_NAME;
-const RELAY_TEAM = process.env.RELAY_TEAM;
-const RELAY_ROLE = process.env.RELAY_ROLE || "agent";
-
-if (!RELAY_DIR || !RELAY_NAME || !RELAY_TEAM) {
-  process.stderr.write(
-    "relay server: RELAY_DIR, RELAY_NAME, and RELAY_TEAM env vars are required\n",
-  );
-  process.exit(1);
+function cwdHash() {
+  return crypto.createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16);
 }
 
-const MEMBERS_PATH = path.join(RELAY_DIR, "members.json");
-const MESSAGES_DIR = path.join(RELAY_DIR, "messages");
-const MY_INBOX_DIR = path.join(MESSAGES_DIR, RELAY_NAME);
+function loadIdentity() {
+  const file = path.join(os.homedir(), ".claude", "relay", "identities", cwdHash() + ".json");
+  if (fs.existsSync(file)) {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      // fall through to env fallback
+    }
+  }
+  // Legacy fallback for teams created with the old `claude mcp add` flow
+  // (before 1.0.12). Lets existing bop/test/etc. registrations keep working.
+  if (process.env.RELAY_TEAM && process.env.RELAY_NAME) {
+    return {
+      team: process.env.RELAY_TEAM,
+      name: process.env.RELAY_NAME,
+      role: process.env.RELAY_ROLE || "agent",
+    };
+  }
+  return null;
+}
+
+const identity = loadIdentity();
+const HAS_IDENTITY = !!identity;
+const RELAY_TEAM = identity?.team;
+const RELAY_NAME = identity?.name;
+const RELAY_ROLE = identity?.role || "agent";
+const RELAY_DIR = HAS_IDENTITY ? path.join(os.homedir(), ".claude", "relay", RELAY_TEAM) : null;
+const MEMBERS_PATH = HAS_IDENTITY ? path.join(RELAY_DIR, "members.json") : null;
+const MESSAGES_DIR = HAS_IDENTITY ? path.join(RELAY_DIR, "messages") : null;
+const MY_INBOX_DIR = HAS_IDENTITY ? path.join(MESSAGES_DIR, RELAY_NAME) : null;
 
 function readJson(filePath, fallback) {
   try {
@@ -49,8 +73,6 @@ function writeJsonAtomic(filePath, data) {
 }
 
 function registerSelf() {
-  // members.json is still a single file. Updates are infrequent (once per
-  // server start) and contention is low; atomic-rename writes are safe.
   const members = readJson(MEMBERS_PATH, {});
   members[RELAY_NAME] = {
     role: RELAY_ROLE,
@@ -60,9 +82,7 @@ function registerSelf() {
   fs.mkdirSync(MY_INBOX_DIR, { recursive: true });
 }
 
-registerSelf();
-
-const TOOLS = [
+const RELAY_TOOLS = [
   {
     name: "relay_send",
     description:
@@ -92,6 +112,8 @@ const TOOLS = [
   },
 ];
 
+const TOOLS = HAS_IDENTITY ? RELAY_TOOLS : [];
+
 function textResult(text) {
   return { content: [{ type: "text", text }] };
 }
@@ -111,12 +133,9 @@ function relaySend(args) {
     const known = Object.keys(members).join(", ") || "(none)";
     return errorResult(`Unknown member "${to}". Known members: ${known}`);
   }
-  // One file per message — no read-modify-write, no contention with other senders.
   const recipientDir = path.join(MESSAGES_DIR, to);
   fs.mkdirSync(recipientDir, { recursive: true });
   const sent = new Date().toISOString();
-  // Filename starts with timestamp so listing is naturally chronological;
-  // random suffix prevents collisions if two messages land in the same ms.
   const filename = `${sent.replace(/[:.]/g, "-")}-${crypto.randomBytes(4).toString("hex")}.json`;
   writeJsonAtomic(path.join(recipientDir, filename), {
     from: RELAY_NAME,
@@ -127,8 +146,6 @@ function relaySend(args) {
 }
 
 function readInboxMessages() {
-  // Returns sorted-by-filename list of { path, msg } for valid messages in
-  // MY_INBOX_DIR. Skips temp files and unparseable entries.
   let entries;
   try {
     entries = fs.readdirSync(MY_INBOX_DIR);
@@ -177,6 +194,11 @@ function relayMembers() {
 }
 
 function callTool(name, args) {
+  if (!HAS_IDENTITY) {
+    return errorResult(
+      "relay: no identity configured for this directory. Run /relay:create <team> or /relay:join <team> <name> first.",
+    );
+  }
   switch (name) {
     case "relay_send":
       return relaySend(args);
@@ -207,8 +229,8 @@ function sendError(id, code, message) {
 }
 
 const SERVER_INFO = {
-  name: `relay-${RELAY_TEAM}`,
-  version: "1.0.10",
+  name: HAS_IDENTITY ? `relay-${RELAY_TEAM}` : "relay",
+  version: "1.0.12",
 };
 
 const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤'];
@@ -234,7 +256,6 @@ rl.on("line", (line) => {
     return;
   }
 
-  // Notifications (no `id`) — no response.
   if (msg.id === undefined) {
     return;
   }
@@ -263,39 +284,38 @@ rl.on("line", (line) => {
   }
 });
 
-// When Claude Code closes our stdin during shutdown, exit cleanly. Without
-// this, fs.watchFile keeps the event loop alive and the server lingers as
-// a zombie process holding watchers.
 function shutdown() {
-  fs.unwatchFile(MY_INBOX_DIR);
+  if (HAS_IDENTITY) fs.unwatchFile(MY_INBOX_DIR);
   process.exit(0);
 }
 rl.on("close", shutdown);
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
-// --- Channel push: poll inbox dir, push each new message as a notification --
-let debounceTimer = null;
+// --- Channel push: only active when an identity is configured --------------
+if (HAS_IDENTITY) {
+  registerSelf();
 
-function drainInbox() {
-  const items = readInboxMessages();
-  for (const { path: p, msg } of items) {
-    sendNotification("notifications/claude/channel", {
-      content: `${dotFor(msg.from)} [${msg.from}] > ${msg.message}`,
-      meta: { from: msg.from, sent: msg.sent },
-    });
-    unlinkSafe(p);
+  let debounceTimer = null;
+
+  function drainInbox() {
+    const items = readInboxMessages();
+    for (const { path: p, msg } of items) {
+      sendNotification("notifications/claude/channel", {
+        content: `${dotFor(msg.from)} [${msg.from}] > ${msg.message}`,
+        meta: { from: msg.from, sent: msg.sent },
+      });
+      unlinkSafe(p);
+    }
   }
+
+  // fs.watchFile (polling) is required on Windows — fs.watch doesn't fire
+  // reliably for cross-process file content/dir changes there.
+  fs.watchFile(MY_INBOX_DIR, { interval: 200 }, (curr, prev) => {
+    if (curr.mtimeMs === prev.mtimeMs) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(drainInbox, 50);
+  });
+
+  setTimeout(drainInbox, 100);
 }
-
-// fs.watchFile (polling) is required on Windows — fs.watch doesn't fire
-// reliably for cross-process file content/dir changes there. We watch the
-// inbox directory's mtime; sub-second granularity is fine for this use.
-fs.watchFile(MY_INBOX_DIR, { interval: 200 }, (curr, prev) => {
-  if (curr.mtimeMs === prev.mtimeMs) return;
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(drainInbox, 50);
-});
-
-// Drain once at startup so any messages queued while we were down get pushed.
-setTimeout(drainInbox, 100);
