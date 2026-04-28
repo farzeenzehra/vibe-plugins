@@ -26,34 +26,23 @@ function cwdHash() {
 
 function loadIdentity() {
   const file = path.join(os.homedir(), ".claude", "relay", "identities", cwdHash() + ".json");
-  if (fs.existsSync(file)) {
-    try {
-      return JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch {
-      // fall through to env fallback
-    }
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
   }
-  // Legacy fallback for teams created with the old `claude mcp add` flow
-  // (before 1.0.12). Lets existing bop/test/etc. registrations keep working.
-  if (process.env.RELAY_TEAM && process.env.RELAY_NAME) {
-    return {
-      team: process.env.RELAY_TEAM,
-      name: process.env.RELAY_NAME,
-      role: process.env.RELAY_ROLE || "agent",
-    };
-  }
-  return null;
 }
 
 const identity = loadIdentity();
 const HAS_IDENTITY = !!identity;
-const RELAY_TEAM = identity?.team;
-const RELAY_NAME = identity?.name;
-const RELAY_ROLE = identity?.role || "agent";
-const RELAY_DIR = HAS_IDENTITY ? path.join(os.homedir(), ".claude", "relay", RELAY_TEAM) : null;
-const MEMBERS_PATH = HAS_IDENTITY ? path.join(RELAY_DIR, "members.json") : null;
-const MESSAGES_DIR = HAS_IDENTITY ? path.join(RELAY_DIR, "messages") : null;
-const MY_INBOX_DIR = HAS_IDENTITY ? path.join(MESSAGES_DIR, RELAY_NAME) : null;
+const TEAM = identity?.team;
+const NAME = identity?.name;
+const ROLE = identity?.role || "agent";
+const TEAM_DIR = HAS_IDENTITY ? path.join(os.homedir(), ".claude", "relay", TEAM) : null;
+const MEMBERS_PATH = HAS_IDENTITY ? path.join(TEAM_DIR, "members.json") : null;
+const MESSAGES_DIR = HAS_IDENTITY ? path.join(TEAM_DIR, "messages") : null;
+const MY_INBOX_DIR = HAS_IDENTITY ? path.join(MESSAGES_DIR, NAME) : null;
 
 function readJson(filePath, fallback) {
   try {
@@ -74,8 +63,8 @@ function writeJsonAtomic(filePath, data) {
 
 function registerSelf() {
   const members = readJson(MEMBERS_PATH, {});
-  members[RELAY_NAME] = {
-    role: RELAY_ROLE,
+  members[NAME] = {
+    role: ROLE,
     joined: new Date().toISOString(),
   };
   writeJsonAtomic(MEMBERS_PATH, members);
@@ -138,7 +127,7 @@ function relaySend(args) {
   const sent = new Date().toISOString();
   const filename = `${sent.replace(/[:.]/g, "-")}-${crypto.randomBytes(4).toString("hex")}.json`;
   writeJsonAtomic(path.join(recipientDir, filename), {
-    from: RELAY_NAME,
+    from: NAME,
     message,
     sent,
   });
@@ -229,8 +218,8 @@ function sendError(id, code, message) {
 }
 
 const SERVER_INFO = {
-  name: HAS_IDENTITY ? `relay-${RELAY_TEAM}` : "relay",
-  version: "1.0.13",
+  name: HAS_IDENTITY ? `relay-${TEAM}` : "relay",
+  version: "1.0.15",
 };
 
 const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤'];

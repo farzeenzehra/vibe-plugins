@@ -10,4 +10,4 @@ If no `relay-*` server is connected, print:
 
   No relay team is connected in this terminal. Run /relay:create <team> or /relay:join <team> <name> first, then restart Claude.
 
-Note: with channels active (`--dangerously-load-development-channels server:relay-<team>` at startup), incoming messages already arrive as `<channel>` notifications — you don't need to call this. Only useful for manual inbox flushing or sessions started without the channels flag.
+Note: with channels active (`--dangerously-load-development-channels plugin:relay@vibe-plugins` at startup), incoming messages already arrive as `<channel>` notifications — you don't need to call this. Only useful for manual inbox flushing or sessions started without the channels flag.

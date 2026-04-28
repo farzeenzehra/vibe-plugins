@@ -10,6 +10,6 @@ Call the `relay_send` tool from the connected `relay-*` MCP server with `to="$to
 
 If no `relay-*` server is connected, print:
 
-  No relay team is connected in this terminal. Run /relay:create <team> or /relay:join <team> <name> first, then restart Claude with `claude --dangerously-load-development-channels server:relay-<team>`.
+  No relay team is connected in this terminal. Run /relay:create <team> or /relay:join <team> <name> first, then restart Claude with `claude --dangerously-load-development-channels plugin:relay@vibe-plugins`.
 
 If multiple `relay-*` servers are connected and the recipient is ambiguous, ask the user which team to send through before calling.

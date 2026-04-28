@@ -8,4 +8,4 @@ Call the `relay_members` tool from the connected `relay-*` MCP server and print 
 
 If multiple `relay-*` servers are connected (you joined multiple teams), call each one and label the output by team. If none are connected, print:
 
-  No relay team is connected in this terminal. Run /relay:create <team> or /relay:join <team> <name>, then restart Claude with `claude --dangerously-load-development-channels server:relay-<team>`.
+  No relay team is connected in this terminal. Run /relay:create <team> or /relay:join <team> <name>, then restart Claude with `claude --dangerously-load-development-channels plugin:relay@vibe-plugins`.
