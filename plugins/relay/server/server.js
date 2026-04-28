@@ -24,8 +24,10 @@ function cwdHash() {
   return crypto.createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16);
 }
 
+const DATA_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+
 function loadIdentity() {
-  const file = path.join(os.homedir(), ".claude", "relay", "identities", cwdHash() + ".json");
+  const file = path.join(DATA_DIR, "relay", "identities", cwdHash() + ".json");
   if (!fs.existsSync(file)) return null;
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -39,7 +41,7 @@ const HAS_IDENTITY = !!identity;
 const TEAM = identity?.team;
 const NAME = identity?.name;
 const ROLE = identity?.role || "agent";
-const TEAM_DIR = HAS_IDENTITY ? path.join(os.homedir(), ".claude", "relay", TEAM) : null;
+const TEAM_DIR = HAS_IDENTITY ? path.join(DATA_DIR, "relay", TEAM) : null;
 const MEMBERS_PATH = HAS_IDENTITY ? path.join(TEAM_DIR, "members.json") : null;
 const MESSAGES_DIR = HAS_IDENTITY ? path.join(TEAM_DIR, "messages") : null;
 const MY_INBOX_DIR = HAS_IDENTITY ? path.join(MESSAGES_DIR, NAME) : null;
@@ -219,7 +221,7 @@ function sendError(id, code, message) {
 
 const SERVER_INFO = {
   name: HAS_IDENTITY ? `relay-${TEAM}` : "relay",
-  version: "1.0.16",
+  version: "1.0.17",
 };
 
 const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤'];
