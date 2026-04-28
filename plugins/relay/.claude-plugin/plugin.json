@@ -1,7 +1,7 @@
 {
   "name": "relay",
   "description": "Cross-terminal Claude Code messaging via MCP with real-time push delivery (Claude Code Channels). Preserves existing conversation context (one restart, then resume). Use /relay:create in the lead terminal and /relay:join in others.",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "author": {
     "name": "Farzeen Zehra"
   }

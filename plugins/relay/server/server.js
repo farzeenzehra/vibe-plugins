@@ -161,7 +161,7 @@ function relayReceive() {
   for (const item of items) unlinkSafe(item.path);
   if (items.length === 0) return textResult("(no new messages)");
   const text = items
-    .map(({ msg }) => `[${msg.sent}] ${msg.from}: ${msg.message}`)
+    .map(({ msg }) => `${dotFor(msg.from)} [${msg.from}] > ${msg.message}`)
     .join("\n");
   return textResult(text);
 }
@@ -208,8 +208,15 @@ function sendError(id, code, message) {
 
 const SERVER_INFO = {
   name: `relay-${RELAY_TEAM}`,
-  version: "1.0.8",
+  version: "1.0.9",
 };
+
+const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤','⚫','⚪'];
+function dotFor(name) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return DOTS[h % DOTS.length];
+}
 
 const CAPABILITIES = {
   tools: {},
@@ -274,7 +281,7 @@ function drainInbox() {
   const items = readInboxMessages();
   for (const { path: p, msg } of items) {
     sendNotification("notifications/claude/channel", {
-      content: `[Relay from ${msg.from}] ${msg.message}`,
+      content: `${dotFor(msg.from)} [${msg.from}] > ${msg.message}`,
       meta: { from: msg.from, sent: msg.sent },
     });
     unlinkSafe(p);
