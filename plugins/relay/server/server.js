@@ -208,10 +208,10 @@ function sendError(id, code, message) {
 
 const SERVER_INFO = {
   name: `relay-${RELAY_TEAM}`,
-  version: "1.0.9",
+  version: "1.0.10",
 };
 
-const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤','⚫','⚪'];
+const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤'];
 function dotFor(name) {
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
