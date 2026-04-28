@@ -8,64 +8,77 @@ allowed-tools: Bash Read Write
 
 End the relay team named "$team_name" in this terminal.
 
-## Step 1 — Resolve paths
+## Step 1 — Resolve, check, and clean up everything in one shot
+
+Run this single Node script. It computes paths, removes the identity file (if it matches this team), scans remaining identities, deletes the shared team dir if no one else references it, and prints a JSON status line — all atomically inside one Node process so Windows backslash paths never get re-embedded in another command.
 
 ```bash
 node -e "
-const os=require('os'),path=require('path'),crypto=require('crypto');
+const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
 const home=os.homedir();
+const cwd=process.cwd();
 const dataDir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
-const hash=crypto.createHash('sha256').update(process.cwd()).digest('hex').slice(0,16);
-console.log(JSON.stringify({dataDir,hash,
-  teamDir:path.join(dataDir,'relay','$team_name'),
-  identitiesDir:path.join(dataDir,'relay','identities'),
-  identityFile:path.join(dataDir,'relay','identities',hash+'.json')}));"
-```
-
-Capture `teamDir`, `identitiesDir`, `identityFile` from the JSON output (paths are native to the OS — Windows backslashes are fine to use directly).
-
-## Step 2 — Delete this terminal's identity file
-
-If `identityFile` exists, read it first to confirm it actually references `$team_name`:
-
-- If its `team` matches `$team_name`, delete the file. Print: `✓ Removed identity file <identityFile>`.
-- If its `team` does not match (e.g., this cwd is in a different team), print: `(this terminal's identity references team "<other>", not "$team_name" — leaving it alone)` and skip to Step 3.
-
-If `identityFile` does not exist, print: `(this terminal had no identity for "$team_name" — already removed or never joined)`.
-
-## Step 3 — Decide whether to delete the shared team directory
-
-Scan `identitiesDir` for any remaining files that reference this team:
-
-```bash
-node -e "
-const fs=require('fs'),path=require('path');
-const dir='<identitiesDir>';
+const hash=crypto.createHash('sha256').update(cwd).digest('hex').slice(0,16);
+const teamName='$team_name';
+const teamDir=path.join(dataDir,'relay',teamName);
+const identitiesDir=path.join(dataDir,'relay','identities');
+const identityFile=path.join(identitiesDir,hash+'.json');
+const fwd=p=>p.split(path.sep).join('/');
+const r={teamName,teamDir:fwd(teamDir),identitiesDir:fwd(identitiesDir),identityFile:fwd(identityFile),hash,cwd:fwd(cwd)};
+r.identityAction='none';
+if (fs.existsSync(identityFile)) {
+  let j=null; try { j=JSON.parse(fs.readFileSync(identityFile,'utf8')); } catch {}
+  if (j && j.team===teamName) { fs.unlinkSync(identityFile); r.identityAction='removed'; }
+  else if (j) { r.identityAction='mismatch'; r.otherTeam=j.team||'(unknown)'; }
+  else { fs.unlinkSync(identityFile); r.identityAction='removed_corrupt'; }
+} else {
+  r.identityAction='missing';
+}
 let inUse=false;
-try {
-  for (const f of fs.readdirSync(dir)) {
+if (fs.existsSync(identitiesDir)) {
+  for (const f of fs.readdirSync(identitiesDir)) {
     if (!f.endsWith('.json')) continue;
     try {
-      const j=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));
-      if (j.team==='$team_name') { inUse=true; break; }
+      const j=JSON.parse(fs.readFileSync(path.join(identitiesDir,f),'utf8'));
+      if (j.team===teamName) { inUse=true; break; }
     } catch {}
   }
-} catch {}
-console.log(inUse?'inuse':'free');"
+}
+r.inUse=inUse;
+r.teamDirAction='none';
+if (!inUse) {
+  if (fs.existsSync(teamDir)) { fs.rmSync(teamDir,{recursive:true,force:true}); r.teamDirAction='removed'; }
+  else { r.teamDirAction='missing'; }
+} else {
+  r.teamDirAction='kept_in_use';
+}
+console.log(JSON.stringify(r));
+"
 ```
 
-- If `free` and `teamDir` exists, delete `teamDir` recursively (`rm -rf "<teamDir>"`). Print: `✓ Deleted shared team dir <teamDir>`.
-- If `inuse`, print: `(other terminals are still in this team — leaving <teamDir> in place)`.
-- If `teamDir` doesn't exist, print: `(team directory was already gone)`.
+The output is a single JSON line. Parse it. **Use the JSON path fields only for printing to the user — never embed them in another `node -e` script or any other code, since Windows path separators look like JS escape sequences.**
 
-## Step 4 — Print restart hint
+## Step 2 — Print results
+
+Based on `identityAction`:
+- `removed` or `removed_corrupt`: print `✓ Removed identity file <identityFile>`.
+- `mismatch`: print `(this terminal's identity references team "<otherTeam>", not "$team_name" — leaving it alone)`.
+- `missing`: print `(this terminal had no identity for "$team_name" — already removed or never joined)`.
+
+Based on `teamDirAction`:
+- `removed`: print `✓ Deleted shared team dir <teamDir>`.
+- `kept_in_use`: print `(other terminals are still in this team — leaving <teamDir> in place)`.
+- `missing`: print `(team directory was already gone)`.
+- `none`: skip (only happens when identityAction was `mismatch` and we still scanned but action wasn't taken — print nothing extra).
+
+## Step 3 — Print restart hint
 
 Print exactly:
 
-Relay team "$team_name" cleaned up in this terminal.
+  Relay team "$team_name" cleaned up in this terminal.
 
-To fully unload the MCP server's awareness, restart Claude Code (resume the conversation if you want to keep context) — though the plugin-declared server will still load in the new session, it'll have no identity here and serve no relay tools.
+  To fully unload the MCP server's awareness, restart Claude Code (resume the conversation if you want to keep context) — though the plugin-declared server will still load in the new session, it'll have no identity here and serve no relay tools.
 
-Other terminals that joined this team should also run:
-  /relay:end $team_name
-…in their own project directories — each one needs to remove its own identity file.
+  Other terminals that joined this team should also run:
+    /relay:end $team_name
+  …in their own project directories — each one needs to remove its own identity file.

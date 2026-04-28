@@ -10,84 +10,84 @@ Set up a relay team named "$team_name" rooted in this terminal as the lead.
 
 The relay MCP server is auto-loaded from the plugin's bundled `.mcp.json` in every Claude Code session. It looks up an identity file keyed by the session's current working directory; when found, it joins that team. This skill writes that identity file plus the shared team directory.
 
-## Step 1 — Resolve paths
+## Step 1 — Resolve, check, and create everything in one shot
 
-Run this Node one-liner to compute everything in one shot (forward-slash form, cwd hash, all derived paths):
+Run this single Node script. It computes paths, runs pre-flight checks, creates the team directory, writes the identity file, and prints a JSON status line — all atomically inside one Node process so Windows backslash paths never get re-embedded in another command.
 
 ```bash
 node -e "
-const os=require('os'),path=require('path'),crypto=require('crypto');
+const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
 const home=os.homedir();
 const cwd=process.cwd();
 const dataDir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
 const hash=crypto.createHash('sha256').update(cwd).digest('hex').slice(0,16);
-console.log(JSON.stringify({home,cwd,dataDir,hash,
-  teamDir:path.join(dataDir,'relay','$team_name'),
-  identitiesDir:path.join(dataDir,'relay','identities'),
-  identityFile:path.join(dataDir,'relay','identities',hash+'.json')}));"
+const teamName='$team_name';
+const teamDir=path.join(dataDir,'relay',teamName);
+const identitiesDir=path.join(dataDir,'relay','identities');
+const identityFile=path.join(identitiesDir,hash+'.json');
+const fwd=p=>p.split(path.sep).join('/');
+const out=o=>{console.log(JSON.stringify(o));process.exit(0);};
+if (fs.existsSync(teamDir)) out({status:'team_exists',teamName,teamDir:fwd(teamDir)});
+if (fs.existsSync(identityFile)) {
+  let existing=null; try { existing=JSON.parse(fs.readFileSync(identityFile,'utf8')); } catch {}
+  out({status:'identity_exists',cwd:fwd(cwd),hash,identityFile:fwd(identityFile),existing});
+}
+fs.mkdirSync(teamDir,{recursive:true});
+fs.mkdirSync(identitiesDir,{recursive:true});
+fs.writeFileSync(identityFile, JSON.stringify({team:teamName,name:'lead',role:'lead'},null,2));
+out({status:'ok',teamName,teamDir:fwd(teamDir),identityFile:fwd(identityFile),cwd:fwd(cwd),hash});
+"
 ```
 
-Capture `teamDir`, `identitiesDir`, `identityFile`, `hash`, `cwd` from the JSON output (paths are native to the OS — Windows backslashes are fine to use directly).
+The output is a single JSON line. Parse it and dispatch on `status`. **Use the JSON path fields only for printing to the user — never embed them in another `node -e` script or any other code, since Windows path separators look like JS escape sequences.**
 
-## Step 2 — Refuse if the team or identity already exist
+## Step 2 — Handle the result
 
-If `teamDir` exists, print:
+**If `status === 'team_exists'`**, print:
 
-  Relay team "$team_name" already exists at <teamDir>.
+  Relay team "$team_name" already exists at `<teamDir>`.
   To rebuild it from scratch, run /relay:end $team_name in any terminal that joined, then re-run this command.
 
 And stop.
 
-If `identityFile` exists, print:
+**If `status === 'identity_exists'`**, print:
 
-  This terminal (cwd: <cwd>) already has a relay identity for cwd-hash <hash>.
-  Run /relay:end <existing-team> first, or open Claude in a different project directory.
+  This terminal (cwd: `<cwd>`) already has a relay identity for cwd-hash `<hash>`.
+  Existing identity: team=`<existing.team>`, name=`<existing.name>` (at `<identityFile>`).
+  Run /relay:end <existing.team> first, or open Claude in a different project directory.
 
 And stop.
 
-## Step 3 — Write the team directory and the identity file
+**If `status === 'ok'`**, continue to Step 3.
 
-Create `teamDir` (recursively).
-
-Write `identityFile` with this exact JSON content (replace `$team_name`):
-
-```json
-{
-  "team": "$team_name",
-  "name": "lead",
-  "role": "lead"
-}
-```
-
-Use Bash `mkdir -p` and a Node `fs.writeFileSync` (or `cat <<EOF`) to create both. The identity file's parent dir (`<dataDir>/relay/identities/`) may not exist yet — create it first.
-
-Print: `✓ Wrote identity file at <identityFile>` and `✓ Created team dir at <teamDir>`.
-
-## Step 4 — Print restart instructions
+## Step 3 — Print success and restart instructions
 
 Print exactly:
 
-Relay team "$team_name" is set up. This terminal is registered as "lead".
+  ✓ Wrote identity file at `<identityFile>`
+  ✓ Created team dir at `<teamDir>`
 
-Identity file: <identityFile>
-Team dir:     <teamDir>
+  Relay team "$team_name" is set up. This terminal is registered as "lead".
 
-The relay MCP server is declared in the plugin and auto-loads in every Claude Code session — no `claude mcp add` needed. The server reads this identity file at startup based on your cwd.
+  Identity file: `<identityFile>`
+  Team dir:     `<teamDir>`
 
-Next steps in THIS terminal:
-  1. Quit Claude Code (Ctrl+D or close).
-  2. Re-run `claude --dangerously-load-development-channels server:relay` in the same directory.
-  3. When prompted, choose "Resume previous conversation" — your context is preserved.
-  4. Approve the development-channel confirmation prompt when asked.
+  The relay MCP server is declared in the plugin and auto-loads in every Claude Code session — no `claude mcp add` needed. The server reads this identity file at startup based on your cwd.
 
-The --dangerously-load-development-channels flag enables real-time push delivery — incoming messages appear in your session as <channel> tags automatically. The plugin's MCP server isn't on Claude Code's approved channels allowlist, so this flag is required.
+  Next steps in THIS terminal:
+    1. Quit Claude Code (Ctrl+D or close).
+    2. Re-run `claude --dangerously-load-development-channels server:relay` in the same directory.
+    3. When prompted, choose "Resume previous conversation" — your context is preserved.
+    4. Approve the development-channel confirmation prompt when asked.
 
-Once restarted you'll have these MCP tools:
-  - relay_send(to, message)   send a message to another member
-  - relay_members()           list registered members
+  The --dangerously-load-development-channels flag enables real-time push delivery — incoming messages appear in your session as <channel> tags automatically. The plugin's MCP server isn't on Claude Code's approved channels allowlist, so this flag is required.
 
-To bring another terminal into this team, in that terminal's project directory run:
-  /relay:join $team_name <agent-name>
+  Once restarted you'll have these MCP tools:
+    - relay_send(to, message)   send a message to another member
+    - relay_members()           list registered members
 
-To clean up later (run in each terminal that joined):
-  /relay:end $team_name
+  To bring another terminal into this team, in that terminal's project directory run:
+    /relay:join $team_name <agent-name>
+
+  To clean up later (run in each terminal that joined):
+    /relay:end $team_name
