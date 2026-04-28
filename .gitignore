@@ -1,5 +1,5 @@
 # Local session/handoff docs (not for the public repo)
-CONTEXT.md
+internal/
 
 # Claude Code local-only state
 .claude/settings.local.json

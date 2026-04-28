@@ -8,7 +8,7 @@ Public Claude Code plugin marketplace. Repo: `github.com/farzeenzehra/vibe-plugi
 - `plugins/<name>/.claude-plugin/plugin.json` — plugin manifest
 - `plugins/<name>/skills/<skill>/SKILL.md` — slash-command skill
 - `plugins/<name>/server/` — bundled MCP server (currently only `relay`)
-- `CONTEXT.md` — gitignored session-handoff doc; read it first if present
+- `internal/` — gitignored local-only docs (session handoff in `internal/CONTEXT.md`, open items in `internal/OPEN_ITEMS.md`); read CONTEXT.md first if present
 
 ## Adding a new plugin
 
