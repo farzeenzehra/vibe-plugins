@@ -13,16 +13,16 @@ End the relay team named "$team_name" in this terminal.
 ```bash
 node -e "
 const os=require('os'),path=require('path'),crypto=require('crypto');
-const home=os.homedir().replace(/\\\\/g,'/');
-const dataDir=(process.env.CLAUDE_CONFIG_DIR||(home+'/.claude')).replace(/\\\\/g,'/');
+const home=os.homedir();
+const dataDir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
 const hash=crypto.createHash('sha256').update(process.cwd()).digest('hex').slice(0,16);
 console.log(JSON.stringify({dataDir,hash,
-  teamDir:dataDir+'/relay/$team_name',
-  identitiesDir:dataDir+'/relay/identities',
-  identityFile:dataDir+'/relay/identities/'+hash+'.json'}));"
+  teamDir:path.join(dataDir,'relay','$team_name'),
+  identitiesDir:path.join(dataDir,'relay','identities'),
+  identityFile:path.join(dataDir,'relay','identities',hash+'.json')}));"
 ```
 
-Capture `teamDir`, `identitiesDir`, `identityFile`.
+Capture `teamDir`, `identitiesDir`, `identityFile` from the JSON output (paths are native to the OS — Windows backslashes are fine to use directly).
 
 ## Step 2 — Delete this terminal's identity file
 

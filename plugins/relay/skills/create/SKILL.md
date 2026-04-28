@@ -17,16 +17,17 @@ Run this Node one-liner to compute everything in one shot (forward-slash form, c
 ```bash
 node -e "
 const os=require('os'),path=require('path'),crypto=require('crypto');
-const home=os.homedir().replace(/\\\\/g,'/');
-const cwd=process.cwd().replace(/\\\\/g,'/');
-const dataDir=(process.env.CLAUDE_CONFIG_DIR||(home+'/.claude')).replace(/\\\\/g,'/');
-const hash=crypto.createHash('sha256').update(process.cwd()).digest('hex').slice(0,16);
+const home=os.homedir();
+const cwd=process.cwd();
+const dataDir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
+const hash=crypto.createHash('sha256').update(cwd).digest('hex').slice(0,16);
 console.log(JSON.stringify({home,cwd,dataDir,hash,
-  teamDir:dataDir+'/relay/$team_name',
-  identityFile:dataDir+'/relay/identities/'+hash+'.json'}));"
+  teamDir:path.join(dataDir,'relay','$team_name'),
+  identitiesDir:path.join(dataDir,'relay','identities'),
+  identityFile:path.join(dataDir,'relay','identities',hash+'.json')}));"
 ```
 
-Capture `teamDir` and `identityFile` from the output.
+Capture `teamDir`, `identitiesDir`, `identityFile`, `hash`, `cwd` from the JSON output (paths are native to the OS — Windows backslashes are fine to use directly).
 
 ## Step 2 — Refuse if the team or identity already exist
 
