@@ -219,7 +219,7 @@ function sendError(id, code, message) {
 
 const SERVER_INFO = {
   name: HAS_IDENTITY ? `relay-${TEAM}` : "relay",
-  version: "1.0.15",
+  version: "1.0.16",
 };
 
 const DOTS = ['🔵','🟢','🟡','🟠','🔴','🟣','🟤'];

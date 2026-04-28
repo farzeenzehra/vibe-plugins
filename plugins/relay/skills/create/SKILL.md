@@ -16,17 +16,16 @@ Run this single Node script. It computes paths, runs pre-flight checks, creates 
 
 ```bash
 node -e "
-const fs=require('fs'),path=require('path'),crypto=require('crypto');
+const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
 const cwd=process.cwd();
-const dataDir=process.env.CLAUDE_CONFIG_DIR;
+const dataDir=process.env.CLAUDE_CONFIG_DIR||path.join(os.homedir(),'.claude');
 const hash=crypto.createHash('sha256').update(cwd).digest('hex').slice(0,16);
 const teamName='$team_name';
-const fwd=p=>p.split(path.sep).join('/');
-const out=o=>{console.log(JSON.stringify(o));process.exit(0);};
-if (!dataDir) out({status:'no_config_dir'});
 const teamDir=path.join(dataDir,'relay',teamName);
 const identitiesDir=path.join(dataDir,'relay','identities');
 const identityFile=path.join(identitiesDir,hash+'.json');
+const fwd=p=>p.split(path.sep).join('/');
+const out=o=>{console.log(JSON.stringify(o));process.exit(0);};
 if (fs.existsSync(teamDir)) out({status:'team_exists',teamName,teamDir:fwd(teamDir)});
 if (fs.existsSync(identityFile)) {
   let existing=null; try { existing=JSON.parse(fs.readFileSync(identityFile,'utf8')); } catch {}
@@ -42,12 +41,6 @@ out({status:'ok',teamName,teamDir:fwd(teamDir),identityFile:fwd(identityFile),cw
 The output is a single JSON line. Parse it and dispatch on `status`. **Use the JSON path fields only for printing to the user — never embed them in another `node -e` script or any other code, since Windows path separators look like JS escape sequences.**
 
 ## Step 2 — Handle the result
-
-**If `status === 'no_config_dir'`**, print:
-
-  CLAUDE_CONFIG_DIR is not set. This skill must be run inside a Claude Code session.
-
-And stop.
 
 **If `status === 'team_exists'`**, print:
 
